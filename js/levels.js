@@ -56,7 +56,12 @@ const Levels = {
                 ? '<i class="fa-solid fa-volume-high"></i>'
                 : '<i class="fa-solid fa-volume-xmark"></i>';
         });
-        game.historique = { pvPerdus: 0, premierBenefice: false, bfrReussi: false, tvaParfaite: false, embuchesSurmontees: 0, bossTermine: false };
+        // Historique du style de jeu : gardé entre deux visites (avant, il repartait
+        // de zéro à chaque rechargement et faussait les trophées).
+        game.historique = Object.assign(
+            { pvPerdus: 0, premierBenefice: false, bfrReussi: false, tvaParfaite: false, embuchesSurmontees: 0,
+              bossTermine: false, gameOvers: 0, decouvert: false, chapitresParfaits: [] },
+            game.chargerHistorique());
         this._initVueProf(game);
         document.getElementById("btn-casting-close").addEventListener("click", () => {
             document.getElementById("casting-overlay").style.display = "none";
@@ -94,6 +99,8 @@ const Levels = {
 
     gameOver() {
         Api.track("game_over", this.game.joueur.niveau, { pv: 0 });
+        this.game.historique.gameOvers = (this.game.historique.gameOvers || 0) + 1;
+        this.game.save();
         const go = Story.gameOver || {};
         UI.setDialog("fa-solid fa-heart-crack", "Chef Luigi", go.dialogue || "");
         UI.setContent(`
@@ -167,16 +174,15 @@ const Levels = {
         } catch (e) { /* pas prof ou offline : rien */ }
     },
 
-    _evaluerTrophees() {
+    async _evaluerTrophees() {
         const g = this.game;
         const nouveaux = Trophees.evaluer(g.joueur, g.historique || {});
-        if (nouveaux.length > 0) {
-            UI.majTrophees();
-            const t = nouveaux[0];
-            setTimeout(() => {
-                UI.setDialog(t.icone, "🏆 Trophée débloqué !", `<b>${t.titre}</b> — ${t.desc}`);
-            }, 4400);
-        }
+        if (!nouveaux.length) return;
+        UI.majTrophees();
+        // le serveur ne révèle le vrai nom qu'une fois le trophée enregistré
+        try { await g.save(); Story.hydrater(await Api.chargerMeta()); } catch (e) { console.error(e); }
+        const n = Trophees.nom(nouveaux[0]);
+        UI.trophee(nouveaux[0].icone, n.titre, n.desc);
     },
 
     recapituler(niveauTermine, suite) {
@@ -241,10 +247,13 @@ const Levels = {
                 </div>
                 ${et.vince ? `<div class="vince-bulle"><i class="fa-solid fa-chess-knight"></i> <div><b>Vince, depuis le Bistrot d'en face :</b> « ${et.vince} »</div></div>` : ""}
                 <button class="btn" id="btn-commencer-epreuve"><i class="fa-solid fa-play"></i> Entrer dans l'épreuve</button>
+                ${niveau > 1 && !Bonus.defiFait() ? `<button class="btn btn-defi" id="btn-defi"><i class="fa-solid fa-calendar-check"></i> Défi du jour : +${Bonus.recompenseDefi} € en caisse</button>` : ""}
             </div>`);
         document.getElementById("btn-commencer-epreuve").addEventListener("click", () => {
             this.jouerEpreuve(niveau);
         });
+        const defi = document.getElementById("btn-defi");
+        if (defi) defi.addEventListener("click", () => Bonus.defi(this.game, () => this.ficheChapitre(niveau)));
     },
 
     async victoire() {
@@ -273,7 +282,7 @@ const Levels = {
                     <div><i class="fa-solid fa-heart"></i><b>${j.pv}</b><span>PV</span></div>
                     <div><i class="fa-solid fa-coins"></i><b>${j.tresorerie} €</b><span>en caisse</span></div>
                     <div><i class="fa-solid fa-fire"></i><b>${h.embuchesSurmontees || 0}</b><span>embûches</span></div>
-                    <div><i class="fa-solid fa-award"></i><b>${Trophees.obtenir().length}/9</b><span>trophées</span></div>
+                    <div><i class="fa-solid fa-award"></i><b>${Trophees.obtenir().length}/${Trophees.liste.length}</b><span>trophées</span></div>
                     <div><i class="fa-solid fa-magnifying-glass"></i><b>${nbErreurs}</b><span>leçons au carnet</span></div>
                 </div>
                 ${phrases.map(p => `<p class="epilogue-phrase">${p}</p>`).join("")}
@@ -314,7 +323,13 @@ const Levels = {
     _jouerActe(i) {
         const { niveau, actes } = this._epreuve;
         const acte = actes[i];
-        if (!acte) { this._ecrireActe(niveau, null); this.complete(); return; }
+        if (!acte) {
+            this._ecrireActe(niveau, null);
+            const h = this.game.historique;
+            if (this._epreuve.erreurs === 0 && !h.chapitresParfaits.includes(niveau)) h.chapitresParfaits.push(niveau);
+            this.complete();
+            return;
+        }
         this._ecrireActe(niveau, i);
         UI.setFeedback("");
         UI.setDialog(acte.dialogueIcone, acte.dialogueNom, acte.dialogueTexte);
@@ -446,12 +461,13 @@ const Levels = {
 
     _moteurCartes(acte, soumettre) {
         const cols = [["a", acte.colonneA || "Colonne A"], ["b", acte.colonneB || "Colonne B"]];
+        const avecMontants = (acte.cartes || []).some(c => Number(c.montant) > 0); // pas de totaux « 0 € » inutiles
         if (acte.colonneC) cols.push(["c", acte.colonneC]);
         UI.setContent(`
             ${acte.contenu || ""}
             <p class="cartes-aide"><i class="fa-solid fa-hand-pointer"></i> Clique sur une carte pour la faire passer d'une colonne à l'autre : ${cols.map(c => c[1]).join(" → ")} → retour.</p>
             <div class="bilan-grid ${cols.length === 3 ? "trois" : ""}">
-                ${cols.map(([k, nom]) => `<div class="bilan-col" id="col-${k}"><b>${nom}</b><div class="bilan-total" id="total-${k}">0 €</div></div>`).join("")}
+                ${cols.map(([k, nom]) => `<div class="bilan-col" id="col-${k}"><b>${nom}</b>${avecMontants ? `<div class="bilan-total" id="total-${k}">0 €</div>` : ""}</div>`).join("")}
             </div>
             <div style="margin-top:10px;" id="card-pool">
                 ${(acte.cartes || []).map((c, i) => `<span class="card-item" data-k="${i}" data-montant="${c.montant || 0}" tabindex="0" role="button">${c.libelle}</span>`).join("")}
@@ -459,7 +475,7 @@ const Levels = {
             <button class="btn" style="margin-top:15px;" id="btn-ep">${acte.bouton || "Valider"}</button>
             ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
         const ordre = ["card-pool", ...cols.map(c => "col-" + c[0])];
-        const totaux = () => cols.forEach(([k]) => {
+        const totaux = () => avecMontants && cols.forEach(([k]) => {
             let t = 0;
             document.querySelectorAll(`#col-${k} .card-item`).forEach(c => t += Number(c.dataset.montant));
             document.getElementById("total-" + k).innerText = t + " €";

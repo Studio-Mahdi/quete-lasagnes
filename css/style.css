@@ -933,3 +933,19 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 .epilogue-bilan span { font-size: 0.8em; color: #666; }
 .epilogue-phrase { font-style: italic; color: #444; }
 @media (max-width: 640px) { #vitrine { padding: 0 15px 8px; } .vitrine-objet { width: 26px; height: 26px; } }
+
+/* ====== Révision (itération 20) ====== */
+.bonus-entete {
+    background: #e8f6f3; color: var(--success); border-radius: 999px; padding: 6px 14px;
+    font-weight: 700; margin-bottom: 10px; display: inline-block;
+}
+.btn-defi { background: var(--success); margin-top: 10px; }
+.btn-defi:hover { background: #21867a; }
+.trophee-toast {
+    position: fixed; top: 20px; left: 50%; transform: translate(-50%, -150%); z-index: 200;
+    background: var(--secondary); color: white; border-radius: 12px; padding: 12px 18px;
+    display: flex; gap: 12px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    transition: transform 0.5s ease; max-width: 92vw;
+}
+.trophee-toast.visible { transform: translate(-50%, 0); }
+.trophee-toast i { font-size: 1.8em; color: #f4a261; }

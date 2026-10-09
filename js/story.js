@@ -7,6 +7,7 @@ const Story = {
     epilogue: null,
     gameOver: null,
     epilogueVariantes: null,
+    trophees: {},
     personnages: {},
     rangs: ["?"],
 
@@ -26,6 +27,7 @@ const Story = {
         if (meta.epilogue) this.epilogue = meta.epilogue;
         if (meta.gameOver) this.gameOver = meta.gameOver;
         if (meta.epilogueVariantes) this.epilogueVariantes = meta.epilogueVariantes;
+        if (meta.trophees) this.trophees = meta.trophees;
         if (meta.souvenirs && typeof Carnet !== "undefined") Carnet.hydrater(meta.souvenirs);
     },
 

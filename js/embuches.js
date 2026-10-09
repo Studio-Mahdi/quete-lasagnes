@@ -26,6 +26,8 @@ const Embuches = {
     },
 
     async peutFrapper(game) {
+        // après le boss final, place à l'épilogue : plus d'embûche
+        if (game.joueur.niveau > 15) return false;
         await this.charger(game.joueur.niveau);
         const vues = this.dejaVues();
         const restantes = this.pool.filter(e => !vues.includes(e.id));

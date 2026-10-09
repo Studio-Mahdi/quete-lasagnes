@@ -15,6 +15,7 @@ const Trophees = {
         boss: "trophee_boss"
     },
 
+    // Les vrais noms sont servis par l'API (Story.trophees) et révélés une fois gagnés.
     liste: [
         { id: "capital", icone: "fa-solid fa-hand-holding-dollar", titre: "Trophée du Chapitre 2", desc: "Se débloque au fil de la quête", test: (j) => j.niveau >= 2 },
         { id: "premierBenefice", icone: "fa-solid fa-coins", titre: "Trophée du Chapitre 3", desc: "Se débloque au fil de la quête", test: (j, h) => j.niveau >= 4 && h.premierBenefice },
@@ -24,8 +25,17 @@ const Trophees = {
         { id: "ebe", icone: "fa-solid fa-gauge-high", titre: "Trophée du Duel", desc: "Se débloque au fil de la quête", test: (j) => j.niveau >= 15 },
         { id: "survieEmbuches", icone: "fa-solid fa-fire", titre: "Trophée de Résilience", desc: "Se débloque en surmontant l'adversité", test: (j, h) => h.embuchesSurmontees >= 1 },
         { id: "completionniste", icone: "fa-solid fa-book-bookmark", titre: "Trophée Final", desc: "Se débloque en terminant la quête", test: (j) => j.niveau > 15 },
-        { id: "boss", icone: "fa-solid fa-trophy", titre: "Trophée Ultime", desc: "Se débloque au sommet de la quête", test: (j, h) => j.niveau > 15 && h.bossTermine }
+        { id: "boss", icone: "fa-solid fa-trophy", titre: "Trophée Ultime", desc: "Se débloque au sommet de la quête", test: (j, h) => j.niveau > 15 && h.bossTermine },
+        { id: "delCuore", icone: "fa-solid fa-heart-pulse", titre: "Trophée de Constance", desc: "Se débloque par une quête sans chute", test: (j, h) => j.niveau > 15 && !h.gameOvers },
+        { id: "epargnante", icone: "fa-solid fa-piggy-bank", titre: "Trophée de Prudence", desc: "Se débloque en gardant la caisse à flot", test: (j, h) => j.niveau > 15 && !h.decouvert },
+        { id: "duelParfait", icone: "fa-solid fa-chess-knight", titre: "Trophée du Duel Parfait", desc: "Se débloque par un duel sans faute", test: (j, h) => (h.chapitresParfaits || []).includes(14) }
     ],
+
+    // Nom réel si le trophée est gagné et que l'API l'a servi
+    nom(t) {
+        const reel = (typeof Story !== "undefined" && Story.trophees && Story.trophees[t.id]) || null;
+        return reel ? { titre: reel.titre, desc: reel.desc } : { titre: t.titre, desc: t.desc };
+    },
 
     obtenir() {
         return JSON.parse(localStorage.getItem("ql_trophees") || "[]");

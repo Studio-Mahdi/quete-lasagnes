@@ -173,10 +173,17 @@ const Game = {
     },
 
     updateStats() {
+        if (this.historique && this.joueur.tresorerie < 0) this.historique.decouvert = true;
         UI.updateStats(this.joueur);
     },
 
-    async save() {
+    _cleHistorique() { return "ql_historique_" + ((this.joueur && this.joueur.email) || ""); },
+    chargerHistorique() {
+        try { return JSON.parse(localStorage.getItem(this._cleHistorique()) || "{}"); } catch (e) { return {}; }
+    },
+
+        async save() {
+        try { localStorage.setItem(this._cleHistorique(), JSON.stringify(this.historique || {})); } catch (e) { /* pas de stockage */ }
         UI.setSaveStatus("pending");
         try {
             await Api.save(this.joueur);

@@ -78,7 +78,7 @@ const UI = {
                 <p style="font-size:1.5em;font-weight:bold;color:#e63946;margin:6px 0;">${UI.esc(joueur.prenom)} ${UI.esc(joueur.nom)}</p>
                 <p>a relevé les 15 épreuves de la trattoria :</p>
                 <p style="font-size:0.9em;color:#444;line-height:1.7;">Capital · Charges fixes · Seuil de rentabilité · BFR · Amortissement · Bilan · TVA · Compte de résultat · Marge · Stocks · Provisions · Emprunt · Trésorerie · EBE · Analyse finale</p>
-                <p>Trophées obtenus : <b>${gagne}/9</b> — Réputation : <b>${joueur.pv} PV</b></p>
+                <p>Trophées obtenus : <b>${gagne}/${Trophees.liste.length}</b> — Réputation : <b>${joueur.pv} PV</b></p>
                 <p style="margin-top:18px;">« Tu as fait de l'argent <i>avec</i> ta passion, pas <i>contre</i> elle. »<br><span style="color:#666;">— Chef Luigi</span></p>
                 <div style="margin-top:25px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                     <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
@@ -89,10 +89,23 @@ const UI = {
         document.getElementById("btn-certificat-close").addEventListener("click", () => zone.remove());
     },
 
+    // Bandeau de trophée : ne remplace pas l'écran en cours
+    trophee(icone, titre, desc) {
+        const b = document.createElement("div");
+        b.className = "trophee-toast";
+        b.innerHTML = `<i class="${icone}"></i><div><b>🏆 Trophée débloqué : ${titre}</b><div>${desc}</div></div>`;
+        document.body.appendChild(b);
+        Sons.fanfare();
+        setTimeout(() => b.classList.add("visible"), 30);
+        setTimeout(() => { b.classList.remove("visible"); setTimeout(() => b.remove(), 600); }, 5000);
+    },
+
     majTrophees() {
         const nb = Trophees.obtenir().length;
         const el = this.$("nb-trophees");
         if (el) el.innerText = nb;
+        const total = this.$("nb-trophees-total");
+        if (total) total.innerText = Trophees.liste.length;
         return nb;
     },
 
@@ -101,9 +114,11 @@ const UI = {
         let html = "";
         for (const t of Trophees.liste) {
             const ok = obtenus.includes(t.id);
+            // nom réel révélé une fois gagné ; sinon un simple indice de style de jeu
+            const n = ok ? Trophees.nom(t) : { titre: "???", desc: t.desc };
             html += `<div class="trophee-item ${ok ? "obtenu" : "verrouille"}">
                 <i class="${ok ? t.icone : "fa-solid fa-lock"}"></i>
-                <div><b>${ok ? t.titre : "???"}</b><div>${ok ? t.desc : t.desc.replace(/[^.!?]/g, "•")}</div></div>
+                <div><b>${n.titre}</b><div>${n.desc}</div></div>
             </div>`;
         }
         this.$("trophees-list").innerHTML = html;
@@ -120,7 +135,7 @@ const UI = {
         let rowsEtudiants = etudiants.map((e, i) => `
             <tr class="prof-etudiant-row" data-email="${UI.esc(e.email)}" style="cursor:pointer;" title="Voir le détail">
                 <td>${i + 1}</td>
-                <td><b>${UI.esc(e.prenom)} ${UI.esc(e.nom)}</b> ${e.trophees && e.trophees.length ? `<span title="${e.trophees.length} trophée(s)">🏆 ${e.trophees.length}/9</span>` : ""}</td>
+                <td><b>${UI.esc(e.prenom)} ${UI.esc(e.nom)}</b> ${e.trophees && e.trophees.length ? `<span title="${e.trophees.length} trophée(s)">🏆 ${e.trophees.length}/${Trophees.liste.length}</span>` : ""}</td>
                 <td>${UI.esc(e.promo) || "—"}</td>
                 <td>Chap. ${Math.min(e.niveau, 15)}/15</td>
                 <td>${e.pv} PV</td>
@@ -224,7 +239,7 @@ const UI = {
         const tropheesHtml = (d.trophees && d.trophees.length)
             ? d.trophees.map(t => {
                 const tr = Trophees.liste.find(x => x.id === t);
-                return tr ? `<span class="trophee-mini">${tr.titre}</span>` : "";
+                return tr ? `<span class="trophee-mini">${Trophees.nom(tr).titre}</span>` : "";
               }).join("")
             : "<em>Aucun trophée pour le moment</em>";
 
@@ -238,7 +253,7 @@ const UI = {
                     <button class="btn" id="btn-eleve-close"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <p class="subtitle">${d.promo ? "Promo " + UI.esc(d.promo) + " · " : ""}Chapitre ${Math.min(d.niveau, 15)}/15 · ${UI.esc(d.pv)} PV · ${UI.esc(d.treso)} €</p>
-                <h3 style="color:var(--secondary);">Trophées (${(d.trophees || []).length}/9)</h3>
+                <h3 style="color:var(--secondary);">Trophées (${(d.trophees || []).length}/${Trophees.liste.length})</h3>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">${tropheesHtml}</div>
                 <h3 style="color:var(--secondary);margin-top:20px;">Parcours chapitre par chapitre</h3>
                 <table class="amort-table">

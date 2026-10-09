@@ -81,6 +81,12 @@ const Api = {
         return data;
     },
 
+    async repondreBonus(cle, graine, reponse) {
+        const data = await this._post({ action: "repondre_bonus", email: this._getEmail(), token: this._getToken(), cle, graine, reponse });
+        if (data.error) throw new Error(data.error);
+        return data;
+    },
+
     async studentDetail(emailEleve) {
         const data = await this._post({
             action: "student_detail",

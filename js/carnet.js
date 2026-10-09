@@ -28,10 +28,12 @@ const Carnet = {
     ajouterSouvenir(n, et) {
         if (!et || !et.objet || this.souvenirs.some(s => s.n === n)) return;
         this.souvenirs.push({ n, titre: et.titre, objet: et.objet, carnet: et.carnet || "", recompense: et.recompense || "" });
-        this.vitrine(n);
+        this._dernier = n;
+        this.vitrine();
     },
 
-    vitrine(nouveau) {
+    vitrine() {
+        const nouveau = this._dernier; // reste en évidence même si la vitrine est redessinée
         const zone = document.getElementById("vitrine");
         if (!zone) return;
         let html = "";
