@@ -31,10 +31,29 @@ const Api = {
         finally { this.clearSession(); }
     },
 
-    async track(type, niveau, donnees) {
-        try {
-            await this._post({ action: "track", email: this._getEmail(), token: this._getToken(), type, niveau, donnees });
-        } catch (e) { console.error(e); }
+    // Statistiques pour le prof : mises en file et envoyées avec la prochaine sauvegarde
+    // (avant : un appel au serveur par événement). La file survit à un rechargement.
+    CLE_FILE: "ql_evenements",
+    _file() { try { return JSON.parse(localStorage.getItem(this.CLE_FILE) || "[]"); } catch (e) { return []; } },
+    _ecrireFile(f) { try { localStorage.setItem(this.CLE_FILE, JSON.stringify(f.slice(-30))); } catch (e) { /* pas de stockage */ } },
+    track(type, niveau, donnees) {
+        const f = this._file();
+        f.push({ type, niveau, donnees: donnees || {}, t: Date.now() });
+        this._ecrireFile(f);
+    },
+
+    // Chronomètre des appels (mesure réelle chez les élèves, envoyée au prof avec la sauvegarde)
+    perf: {},
+    _chrono(action, ms) {
+        const p = this.perf[action] || (this.perf[action] = { n: 0, total: 0, max: 0 });
+        p.n++; p.total += ms; p.max = Math.max(p.max, ms);
+    },
+    _perfEvenement(niveau) {
+        const actions = Object.keys(this.perf);
+        if (!actions.length) return null;
+        const donnees = {};
+        actions.forEach(a => { const p = this.perf[a]; donnees[a] = [p.n, Math.round(p.total / p.n), Math.round(p.max)]; });
+        return { type: "perf", niveau, donnees, t: Date.now() };
     },
 
     async classProgress() {
@@ -50,7 +69,11 @@ const Api = {
     },
 
     async save(joueur) {
+        const lot = this._file();
+        const perf = this._perfEvenement(joueur.niveau);
+        if (perf) lot.push(perf);
         const data = await this._post({
+            evenements: lot.slice(-30),
             action: "save",
             email: joueur.email,
             token: this._getToken(),
@@ -61,6 +84,10 @@ const Api = {
             trophees: (typeof Trophees !== "undefined") ? Trophees.obtenir() : []
         });
         if (!data.success) throw new Error(data.error || "save_failed");
+        // envoyés : retirés de la file (ceux ajoutés pendant l'envoi restent)
+        const envoyes = new Set(lot.map(e => e.t + e.type));
+        this._ecrireFile(this._file().filter(e => !envoyes.has(e.t + e.type)));
+        if (perf) this.perf = {};
         return true;
     },
 
@@ -73,6 +100,7 @@ const Api = {
     async chargerChapitre(niveau) {
         const data = await this._post({ action: "contenu_chapitre", email: this._getEmail(), token: this._getToken(), niveau });
         if (data.error) throw new Error(data.error);
+        if (data.embuches && typeof Embuches !== "undefined") Embuches.recevoir(niveau, data.embuches);
         return data.chapitre;
     },
 
@@ -142,6 +170,7 @@ const Api = {
     async _post(params) {
         const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
         const minuteur = ctrl ? setTimeout(() => ctrl.abort(), this.DELAI_MS) : null;
+        const debut = Date.now();
         try {
             const res = await fetch(URL_API, {
                 method: "POST",
@@ -150,7 +179,9 @@ const Api = {
                 signal: ctrl ? ctrl.signal : undefined
             });
             if (!res.ok) throw new Error(`http_${res.status}`);
-            return await res.json();
+            const json = await res.json();
+            this._chrono(params.action, Date.now() - debut);
+            return json;
         } catch (e) {
             if (e.name === "AbortError") throw new Error("http_0");
             throw e;

@@ -30,6 +30,7 @@ const Story = {
         if (meta.trophees) this.trophees = meta.trophees;
         if ("defiClasse" in meta) this.defiClasse = meta.defiClasse;
         if ("seanceMax" in meta) this.seanceMax = meta.seanceMax;
+        if ("prof" in meta) this.prof = !!meta.prof;
         if (meta.souvenirs && typeof Carnet !== "undefined") Carnet.hydrater(meta.souvenirs);
     },
 

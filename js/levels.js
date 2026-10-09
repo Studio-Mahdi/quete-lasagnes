@@ -178,8 +178,7 @@ const Levels = {
         Carnet.ajouterSouvenir(fini, Story.etapes[fini]);
         // Pendant que l'élève lit sa récompense : chapitre suivant et embûches demandés
         // d'avance (avant : deux allers-retours vers Google APRÈS le clic, sans rien afficher)
-        this.precharger(g.joueur.niveau);
-        if (g.joueur.niveau <= 15) Embuches.charger(g.joueur.niveau);
+        this.precharger(g.joueur.niveau); // les embûches du chapitre suivant viennent avec lui
         // peutFrapper est async : attendre sa réponse (une Promise est toujours
         // "vraie", le chapitre suivant ne se chargeait donc jamais sans embûche).
         const nxt = async () => {
@@ -192,6 +191,8 @@ const Levels = {
     },
 
     async _initVueProf(game) {
+        // seuls les profs interrogent la vue classe (le serveur le dit dans contenu_meta)
+        if (!Story.prof) return;
         try {
             const data = await Api.classProgress();
             if (data && data.etudiants) {

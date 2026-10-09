@@ -16,9 +16,18 @@ const Embuches = {
         try { localStorage.setItem(this.CLE_VUES, JSON.stringify(vues)); } catch (e) { /* pas de stockage */ }
     },
 
+    // Les embûches arrivent avec le chapitre (contenu_chapitre) : plus d'appel séparé
+    recevoir(niveau, liste) {
+        this.pool = Array.isArray(liste) ? liste : [];
+        this._niveauCharge = niveau;
+    },
+
     async charger(niveau) {
         // de nouvelles embûches se débloquent avec les chapitres : on recharge si le niveau a changé
-        if (this.pool.length && this._niveauCharge === niveau) return;
+        if (this._niveauCharge === niveau) return;
+        // le chapitre est peut-être en cours de préchargement : ses embûches viennent avec lui
+        const pre = typeof Levels !== "undefined" && Levels._prechargements && Levels._prechargements[niveau];
+        if (pre) { try { await pre; } catch (e) { /* repli ci-dessous */ } if (this._niveauCharge === niveau) return; }
         // une demande déjà en route (préchargement pendant la récompense) est réutilisée
         if (this._enCours && this._enCoursNiveau === niveau) return this._enCours;
         this._enCoursNiveau = niveau;
