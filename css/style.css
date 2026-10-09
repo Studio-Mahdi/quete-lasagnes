@@ -578,7 +578,8 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 #fiche-overlay,
 #trophees-overlay,
 #casting-overlay,
-#classement-overlay {
+#classement-overlay,
+#carnet-overlay {
     position: fixed;
     inset: 0;
     background: rgba(29,53,87,0.8);
@@ -883,3 +884,52 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     .jauge-ligne { grid-template-columns: 1fr; }
     .saisie-champ { flex-direction: column; align-items: stretch; }
 }
+
+/* ====== Monde vivant (itération 19) ====== */
+#vitrine {
+    background: var(--secondary); padding: 0 30px 10px; display: flex; gap: 6px;
+    justify-content: center; flex-wrap: wrap;
+}
+.vitrine-objet {
+    width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.15); color: #f4a261; cursor: pointer; font-size: 0.9em;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.vitrine-objet.vide { color: rgba(255,255,255,0.25); cursor: default; background: transparent; border-style: dashed; }
+.vitrine-objet.nouveau { animation: brille 1.2s ease-in-out 3; }
+@keyframes brille { 50% { background: #f4a261; color: var(--secondary); transform: scale(1.2); } }
+
+.carnet-onglets { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.carnet-onglet {
+    border: 2px solid var(--secondary); background: white; color: var(--secondary); border-radius: 999px;
+    padding: 6px 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.carnet-onglet.actif { background: var(--secondary); color: white; }
+.carnet-page, .carnet-erreur {
+    background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; text-align: left;
+    border-left: 4px solid #f4a261; display: flex; gap: 12px; line-height: 1.5;
+}
+.carnet-erreur { display: block; border-left-color: var(--primary); }
+.carnet-page > i { font-size: 1.6em; color: #f4a261; margin-top: 4px; }
+.carnet-chapitre { font-weight: 800; color: var(--secondary); margin-bottom: 4px; }
+.carnet-parents { font-family: Georgia, serif; font-style: italic; color: #5a4632; margin: 6px 0; }
+.carnet-recompense { color: #666; font-size: 0.9em; }
+
+.vince-bulle {
+    margin-top: 14px; padding: 10px 14px; background: #2b2d42; color: #f1f1f1; border-radius: 12px;
+    display: flex; gap: 10px; align-items: flex-start; text-align: left;
+}
+.vince-bulle i { color: #ef476f !important; font-size: 1.4em; margin-top: 2px; }
+.souvenir-gagne { margin-top: 10px; color: var(--secondary); }
+.souvenir-gagne i { color: #f4a261; margin-right: 4px; }
+.competence-acquise .carnet-parents { margin-top: 10px; }
+.interlude p { font-size: 1.1em; }
+.epilogue-bilan { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 16px 0; }
+.epilogue-bilan div {
+    background: var(--bg); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column;
+    align-items: center; min-width: 90px;
+}
+.epilogue-bilan b { font-size: 1.3em; color: var(--secondary); }
+.epilogue-bilan span { font-size: 0.8em; color: #666; }
+.epilogue-phrase { font-style: italic; color: #444; }
+@media (max-width: 640px) { #vitrine { padding: 0 15px 8px; } .vitrine-objet { width: 26px; height: 26px; } }

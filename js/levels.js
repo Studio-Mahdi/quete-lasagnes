@@ -135,7 +135,8 @@ const Levels = {
         Sons.fanfare();
         Api.track("victoire", g.joueur.niveau - 1, { dureeMs: Date.now() - (this._debutNiveau || Date.now()) });
         this._evaluerTrophees();
-        this.recapituler(g.joueur.niveau - 1);
+        const fini = g.joueur.niveau - 1;
+        Carnet.ajouterSouvenir(fini, Story.etapes[fini]);
         // peutFrapper est async : attendre sa réponse (une Promise est toujours
         // "vraie", le chapitre suivant ne se chargeait donc jamais sans embûche).
         const nxt = async () => {
@@ -143,7 +144,8 @@ const Levels = {
             try { frappe = await Embuches.peutFrapper(g); } catch (e) { console.error(e); }
             if (!frappe) this.load(g.joueur.niveau);
         };
-        setTimeout(nxt, 4200);
+        // Le joueur avance quand il a lu sa récompense (avant : 4 s puis départ forcé)
+        this.recapituler(fini, nxt);
     },
 
     async _initVueProf(game) {
@@ -177,9 +179,10 @@ const Levels = {
         }
     },
 
-    recapituler(niveauTermine) {
+    recapituler(niveauTermine, suite) {
         const et = Story.etapes[niveauTermine];
-        if (!et) return;
+        if (!et) { if (suite) suite(); return; }
+        UI.setFeedback("");
         UI.confettis();
         UI.setDialog(et.competence.icone, "Compétence acquise", `${et.competence.nom} — ${et.recap}`);
         UI.setContent(`
@@ -190,8 +193,16 @@ const Levels = {
                     <div class="recap">${et.recap}</div>
                     ${et.anecdote ? `<div class="anecdote"><b><i class="fa-solid fa-lightbulb"></i> Le saviez-vous ?</b> ${et.anecdote}</div>` : ""}
                     ${et.recompense ? `<div class="recompense"><i class="fa-solid fa-gift"></i> <div><b>Récompense</b><div>${et.recompense}</div></div></div>` : ""}
+                    ${et.objet ? `<div class="souvenir-gagne"><i class="${et.objet.icone}"></i> <b>${et.objet.nom}</b> rejoint la vitrine de la trattoria.</div>` : ""}
+                    ${et.carnet ? `<div class="carnet-parents">Le carnet des parents : « ${et.carnet} »</div>` : ""}
+                    <button class="btn btn-suite" id="btn-chapitre-suivant">${et.interlude ? "Continuer" : "Chapitre suivant"} <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
             </div>`);
+        const bouton = document.getElementById("btn-chapitre-suivant");
+        bouton.addEventListener("click", () => {
+            if (et.interlude) this.interlude(et.interlude, suite);
+            else if (suite) suite();
+        });
     },
 
     prologue() {
@@ -207,6 +218,17 @@ const Levels = {
         });
     },
 
+    interlude(scene, suite) {
+        UI.setDialog(scene.icone, scene.titre, "");
+        UI.setContent(`
+            <div class="prologue interlude">
+                <h2><i class="${scene.icone}"></i> ${scene.titre}</h2>
+                <p>${scene.texte}</p>
+                <button class="btn" id="btn-interlude">Retourner en cuisine <i class="fa-solid fa-arrow-right"></i></button>
+            </div>`);
+        document.getElementById("btn-interlude").addEventListener("click", () => { if (suite) suite(); });
+    },
+
     ficheChapitre(niveau) {
         const et = Story.etapes[niveau];
         if (!et) return;
@@ -217,6 +239,7 @@ const Levels = {
                 <div class="chapitre-objectif">
                     <i class="fa-solid fa-bullseye"></i> Objectif : réussir l'épreuve sans faire plonger la trattoria.
                 </div>
+                ${et.vince ? `<div class="vince-bulle"><i class="fa-solid fa-chess-knight"></i> <div><b>Vince, depuis le Bistrot d'en face :</b> « ${et.vince} »</div></div>` : ""}
                 <button class="btn" id="btn-commencer-epreuve"><i class="fa-solid fa-play"></i> Entrer dans l'épreuve</button>
             </div>`);
         document.getElementById("btn-commencer-epreuve").addEventListener("click", () => {
@@ -236,11 +259,24 @@ const Levels = {
         }
         Sons.fanfare();
         this._evaluerTrophees();
+        const j = this.game.joueur, h = this.game.historique || {};
+        const nbErreurs = Carnet.erreurs().length;
+        const variante = (liste, valeur) => ((liste || []).find(v => valeur >= v.min) || {}).texte || "";
+        const V = Story.epilogueVariantes || {};
+        const phrases = [variante(V.pv, j.pv), variante(V.embuches, h.embuchesSurmontees || 0), variante(V.erreurs, nbErreurs)].filter(Boolean);
         UI.setDialog("fa-solid fa-trophy", "Chef Luigi", Story.epilogue.texte.replace(/<[^>]*>/g, "").slice(0, 150) + "...");
         UI.setContent(`
             <div class="prologue">
                 <h2><i class="fa-solid fa-trophy"></i> ${Story.epilogue.titre}</h2>
                 ${Story.epilogue.texte}
+                <div class="epilogue-bilan">
+                    <div><i class="fa-solid fa-heart"></i><b>${j.pv}</b><span>PV</span></div>
+                    <div><i class="fa-solid fa-coins"></i><b>${j.tresorerie} €</b><span>en caisse</span></div>
+                    <div><i class="fa-solid fa-fire"></i><b>${h.embuchesSurmontees || 0}</b><span>embûches</span></div>
+                    <div><i class="fa-solid fa-award"></i><b>${Trophees.obtenir().length}/9</b><span>trophées</span></div>
+                    <div><i class="fa-solid fa-magnifying-glass"></i><b>${nbErreurs}</b><span>leçons au carnet</span></div>
+                </div>
+                ${phrases.map(p => `<p class="epilogue-phrase">${p}</p>`).join("")}
                 <button class="btn" id="btn-certificat"><i class="fa-solid fa-certificate"></i> Obtenir mon certificat</button>
             </div>`);
         document.getElementById("btn-certificat").addEventListener("click", () => {
@@ -323,6 +359,7 @@ const Levels = {
             const el = document.querySelector(`[data-k="${k}"]`);
             if (el) el.classList.add("erreur-surlignee");
         });
+        Carnet.noterErreur(ep.niveau, (Story.etapes[ep.niveau] || {}).titre, res.autopsie);
         const autopsie = res.autopsie ? `<div class="autopsie"><b><i class="fa-solid fa-magnifying-glass"></i> L'autopsie de Luigi</b><div>${res.autopsie}</div></div>` : "";
         const indice = res.indice ? `<div class="indice"><i class="fa-solid fa-lightbulb"></i> ${res.indice}</div>` : "";
         UI.feedbackKo(`${res.feedback || "Pas tout à fait..."}${autopsie}${indice}`);

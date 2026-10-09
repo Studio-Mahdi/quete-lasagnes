@@ -167,6 +167,7 @@ const Game = {
             Story.hydrater(meta);
         } catch (e) { console.error(e); }
         Levels.init(this);
+        Carnet.init();
         this.updateStats();
         Levels.load(this.joueur.niveau);
     },

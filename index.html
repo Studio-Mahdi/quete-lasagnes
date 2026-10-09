@@ -57,6 +57,7 @@
             <span><i class="fa-solid fa-box"></i> <span id="val-stock"></span> Lasagnes</span>
             <span><i class="fa-solid fa-map"></i> Chapitre <span id="val-chapitre"></span></span>
             <span id="btn-grimoire" class="stat-action" role="button" tabindex="0" title="Grimoire des compétences"><i class="fa-solid fa-book-bookmark"></i> Grimoire</span>
+            <span id="btn-carnet" class="stat-action" role="button" tabindex="0" title="Le carnet : pages des parents et mes erreurs"><i class="fa-solid fa-book-open"></i> Carnet</span>
             <span id="btn-fiches" class="stat-action" role="button" tabindex="0" title="Fiches d'aide"><i class="fa-solid fa-circle-question"></i> Fiches</span>
             <span id="btn-casting" class="stat-action" role="button" tabindex="0" title="Casting de la quête"><i class="fa-solid fa-users"></i> Casting</span>
             <span id="btn-trophees" class="stat-action" role="button" tabindex="0" title="Trophées"><i class="fa-solid fa-award"></i> <span id="nb-trophees">0</span>/9</span>
@@ -68,6 +69,7 @@
             <div id="progress-bar"><div id="progress-fill"></div></div>
             <span id="progress-label"></span>
         </div>
+        <div id="vitrine" title="La vitrine de la trattoria : un souvenir par chapitre réussi"></div>
 
         <div id="action-area">
             <div id="quest-content"></div>
@@ -129,6 +131,20 @@
     </div>
 </div>
 
+<div id="carnet-overlay" style="display:none;">
+    <div class="grimoire-panel">
+        <div class="grimoire-header">
+            <h2><i class="fa-solid fa-book-open"></i> Le Carnet</h2>
+            <button class="btn" id="btn-carnet-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="carnet-onglets">
+            <button class="carnet-onglet actif" data-onglet="parents"><i class="fa-solid fa-heart"></i> Les pages des parents</button>
+            <button class="carnet-onglet" data-onglet="erreurs"><i class="fa-solid fa-magnifying-glass"></i> Mes erreurs</button>
+        </div>
+        <div id="carnet-corps"></div>
+    </div>
+</div>
+
 <div id="fiche-overlay" style="display:none;">
     <div class="grimoire-panel fiche-panel">
         <div class="grimoire-header">
@@ -144,6 +160,7 @@
 <script src="js/ui.js"></script>
 <script src="js/story.js"></script>
 <script src="js/fiches.js"></script>
+<script src="js/carnet.js"></script>
 <script src="js/embuches.js"></script>
 <script src="js/bonus.js"></script>
 <script src="js/sons.js"></script>
