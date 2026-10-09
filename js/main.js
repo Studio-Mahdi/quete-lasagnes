@@ -14,6 +14,13 @@ const Game = {
             if (e.key === "Enter") this.verifierCode();
         });
         UI.$("btn-resend").addEventListener("click", () => this.renvoyerCode());
+        // Boutons de la barre du haut (des <span>) : utilisables au clavier
+        document.addEventListener("keydown", e => {
+            if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("stat-action")) {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
         this.tryResume();
     },
 

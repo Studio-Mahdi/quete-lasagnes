@@ -161,6 +161,8 @@ const Levels = {
                 const profBtn = document.createElement("span");
                 profBtn.className = "stat-action";
                 profBtn.id = "btn-vue-prof";
+                profBtn.setAttribute("role", "button");
+                profBtn.tabIndex = 0;
                 profBtn.title = "Vue professeur : progression détaillée de la classe";
                 profBtn.innerHTML = '<i class="fa-solid fa-chalkboard-user"></i> Ma classe';
                 btn.parentElement.insertBefore(profBtn, btn);

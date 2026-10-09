@@ -347,13 +347,25 @@ const UI = {
         this.$("casting-overlay").style.display = "flex";
     },
 
-    grimoire(niveau) {
+    async grimoire(niveau) {
         const list = this.$("grimoire-list");
+        // Les chapitres ne sont chargés qu'à la demande : après un rechargement de
+        // page, les chapitres déjà réussis n'étaient pas en mémoire et le grimoire
+        // affichait « en préparation ». On charge ceux qui manquent (déjà atteints).
+        const manquants = [];
+        for (let i = 1; i < Math.min(niveau, 16); i++) if (!Story.etapes[i]) manquants.push(i);
+        if (manquants.length) {
+            list.innerHTML = `<div class="grimoire-item"><i class="fa-solid fa-spinner fa-spin"></i><div>Chargement de tes compétences...</div></div>`;
+            this.$("grimoire-overlay").style.display = "flex";
+            await Promise.all(manquants.map(i => Api.chargerChapitre(i)
+                .then(ch => Story.hydraterChapitre(i, ch))
+                .catch(e => console.error(e))));
+        }
         let html = "";
         for (let i = 1; i <= 15; i++) {
             const et = Story.etapes[i];
-            if (!et) {
-                html += `<div class="grimoire-item locked"><i class="fa-solid fa-lock"></i><div><b>???</b><div>Chapitre ${i} en préparation</div></div></div>`;
+            if (!et && i >= niveau) {
+                html += `<div class="grimoire-item locked"><i class="fa-solid fa-lock"></i><div><b>???</b><div>Compétence à débloquer au chapitre ${i}</div></div></div>`;
                 continue;
             }
             if (i < niveau && et && et.competence) {

@@ -110,9 +110,26 @@ body {
     font-weight: 800;
     margin-left: 6px;
 }
-.stat-action { cursor: pointer; }
+/* Boutons de la barre du haut : forme de « pilule » pour les distinguer des
+   compteurs (PV, €, lasagnes), sinon personne ne comprend qu'ils sont cliquables. */
+.stat-action {
+    cursor: pointer;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 4px 14px;
+    display: inline-flex;
+    align-items: center;
+    transition: background 0.15s, transform 0.15s;
+    user-select: none;
+}
 .stat-action i { color: #f4a261; }
-.stat-action:hover { text-decoration: underline; }
+.stat-action:hover, .stat-action:focus-visible {
+    background: rgba(255,255,255,0.25);
+    transform: translateY(-1px);
+    outline: none;
+}
+.stat-action:active { transform: translateY(0); }
 
 #progress-wrap {
     background: var(--secondary);
@@ -590,6 +607,8 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 
 .grimoire-header h2 { color: var(--secondary); display: flex; align-items: center; gap: 10px; margin: 0; }
 .grimoire-header i { color: var(--primary); }
+/* La croix de fermeture est sur un bouton rouge : icône blanche (elle était rouge sur rouge). */
+.grimoire-header .btn i { color: white; }
 
 .grimoire-item {
     display: flex;
