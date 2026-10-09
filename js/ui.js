@@ -125,8 +125,29 @@ const UI = {
         this.$("trophees-overlay").style.display = "flex";
     },
 
+    // Export tableur de la progression (séparateur ; et BOM pour Excel en français)
+    exporterCSV(etudiants) {
+        const cellule = v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+        const lignes = [["Email", "Prénom", "Nom", "Promo", "Chapitres réussis", "PV", "Trésorerie", "Trophées"]]
+            .concat(etudiants.map(e => [e.email, e.prenom, e.nom, e.promo, Math.min(e.niveau - 1, 15), e.pv, e.treso, (e.trophees || []).length]));
+        const csv = "\ufeff" + lignes.map(l => l.map(cellule).join(";")).join("\r\n");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        a.download = `quete-lasagnes-progression-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    },
+
+    _optionsChapitre(choisi, vide) {
+        let h = `<option value="0">${vide}</option>`;
+        for (let n = 1; n <= 15; n++) h += `<option value="${n}" ${Number(choisi) === n ? "selected" : ""}>${n}</option>`;
+        return h;
+    },
+
     vueProf(data) {
         const { etudiants, statsParNiveau, resumePromos } = data;
+        const idees = data.ideesFausses || {};
         const fmtDuree = (ms) => {
             if (!ms) return "—";
             const min = Math.round(ms / 60000);
@@ -147,15 +168,23 @@ const UI = {
         let resumeHtml = "";
         if (resumePromos && Object.keys(resumePromos).length > 0) {
             resumeHtml = `<h3 style="color:var(--secondary);margin-top:20px;">Par promo</h3>
+            <p class="subtitle prof-aide"><b>Séance</b> : dernier chapitre ouvert aux élèves (pour avancer ensemble). <b>Défi de classe</b> : chapitre que toute la promo doit réussir avant une date — les élèves voient la progression collective.</p>
             <table class="amort-table" id="prof-promos">
-                <tr><th>Promo</th><th>Effectif</th><th>Niveau moyen</th><th>Meilleur niveau</th></tr>
-                ${Object.entries(resumePromos).map(([p, r]) => `
-                <tr>
+                <tr><th>Promo</th><th>Effectif</th><th>Niveau moyen</th><th>Meilleur</th><th>Séance : jusqu'au chap.</th><th>Défi : chap.</th><th>Défi : avant le</th><th></th></tr>
+                ${Object.entries(resumePromos).map(([p, r]) => {
+                    const g = r.reglages || {};
+                    return p ? `
+                <tr data-promo="${UI.esc(p)}">
                     <td><b>${UI.esc(p)}</b></td>
                     <td>${r.effectif}</td>
                     <td>${r.niveauMoyen}</td>
                     <td>${r.niveauMax}</td>
-                </tr>`).join("")}
+                    <td><select class="reglage-max">${this._optionsChapitre(g.max, "tous")}</select></td>
+                    <td><select class="reglage-defi">${this._optionsChapitre(g.defiChapitre, "aucun")}</select></td>
+                    <td><input type="date" class="reglage-date" value="${UI.esc(g.defiDate || "")}"></td>
+                    <td><button class="btn btn-mini btn-reglage">Enregistrer</button></td>
+                </tr>` : "";
+                }).join("")}
             </table>`;
         }
 
@@ -175,6 +204,18 @@ const UI = {
         }
         if (!rowsStats) rowsStats = "<tr><td colspan='5'>Pas encore de données. Elles apparaissent dès que les étudiants jouent.</td></tr>";
 
+        // Idées fausses : l'erreur précise la plus fréquente, en % des élèves ayant atteint le chapitre
+        let ideesHtml = "";
+        for (let n = 1; n <= 15; n++) {
+            const liste = idees[n];
+            if (!liste || !liste.length) continue;
+            const atteints = etudiants.filter(e => e.niveau >= n).length || 1;
+            ideesHtml += `<div class="idee-chapitre"><b>Chap. ${n}${Story.etapes[n] ? " — " + Story.etapes[n].titre : ""}</b>
+                ${liste.map(i => `<div class="idee-ligne"><span class="idee-pct">${Math.round(i.eleves * 100 / atteints)} %</span><span>${UI.esc(i.idee)}</span><span class="idee-nb">${i.eleves} élève${i.eleves > 1 ? "s" : ""}</span></div>`).join("")}
+            </div>`;
+        }
+        if (!ideesHtml) ideesHtml = "<p class='subtitle'>Aucune erreur enregistrée pour l'instant.</p>";
+
         let zone = document.getElementById("prof-overlay");
         if (!zone) {
             zone = document.createElement("div");
@@ -188,11 +229,14 @@ const UI = {
                     </div>
                     <p class="subtitle">Progression des étudiants et difficulté des chapitres (taux d'échec = signaux pédagogiques).</p>
                     ${resumeHtml}
-                    <h3 style="color:var(--secondary);margin-top:20px;">Étudiants (${etudiants.length})</h3>
+                    <h3 style="color:var(--secondary);margin-top:20px;">Étudiants (${etudiants.length}) <button class="btn btn-mini" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> Exporter (CSV)</button></h3>
                     <table class="amort-table" id="prof-etudiants">
                         <tr><th>#</th><th>Étudiant</th><th>Promo</th><th>Progression</th><th>Réputation</th><th>Trésorerie</th></tr>
                         ${rowsEtudiants}
                     </table>
+                    <h3 style="color:var(--secondary);margin-top:20px;">Idées fausses de la classe</h3>
+                    <p class="subtitle prof-aide">L'erreur précise commise, chapitre par chapitre — de quoi cibler la reprise en cours.</p>
+                    ${ideesHtml}
                     <h3 style="color:var(--secondary);margin-top:20px;">Analyse par chapitre</h3>
                     <table class="amort-table" id="prof-stats">
                         <tr><th>Chapitre</th><th>Notion</th><th>Victoires</th><th>Taux d'échec</th><th>Temps médian</th></tr>
@@ -201,6 +245,17 @@ const UI = {
                 </div>`;
             document.body.appendChild(zone);
             document.getElementById("btn-prof-close").addEventListener("click", () => zone.remove());
+            document.getElementById("btn-export-csv").addEventListener("click", () => UI.exporterCSV(etudiants));
+            zone.querySelectorAll(".btn-reglage").forEach(b => b.addEventListener("click", async () => {
+                const tr = b.closest("tr");
+                b.disabled = true;
+                try {
+                    await Api.reglerSeance(tr.dataset.promo, Number(tr.querySelector(".reglage-max").value),
+                        Number(tr.querySelector(".reglage-defi").value), tr.querySelector(".reglage-date").value);
+                    b.innerText = "Enregistré ✓";
+                } catch (e) { b.innerText = "Erreur"; }
+                setTimeout(() => { b.innerText = "Enregistrer"; b.disabled = false; }, 2000);
+            }));
             zone.addEventListener("click", (e) => { if (e.target === zone) zone.remove(); });
             zone.querySelectorAll(".prof-etudiant-row").forEach(row => {
                 row.addEventListener("click", async () => {

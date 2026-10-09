@@ -81,6 +81,12 @@ const Api = {
         return data;
     },
 
+    async reglerSeance(promo, max, defiChapitre, defiDate) {
+        const data = await this._post({ action: "seance", email: this._getEmail(), token: this._getToken(), promo, max, defiChapitre, defiDate });
+        if (data.error) throw new Error(data.error);
+        return data;
+    },
+
     async repondreBonus(cle, graine, reponse) {
         const data = await this._post({ action: "repondre_bonus", email: this._getEmail(), token: this._getToken(), cle, graine, reponse });
         if (data.error) throw new Error(data.error);
@@ -122,13 +128,27 @@ const Api = {
         localStorage.setItem(EMAIL_KEY, joueur.email);
     },
 
+    // Délai maximal d'une requête : sans lui, une réponse perdue (réseau, Apps Script
+    // qui ne répond pas) laissait le bouton désactivé pour toujours, sans message.
+    DELAI_MS: 25000,
+
     async _post(params) {
-        const res = await fetch(URL_API, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(params)
-        });
-        if (!res.ok) throw new Error(`http_${res.status}`);
-        return res.json();
+        const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const minuteur = ctrl ? setTimeout(() => ctrl.abort(), this.DELAI_MS) : null;
+        try {
+            const res = await fetch(URL_API, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(params),
+                signal: ctrl ? ctrl.signal : undefined
+            });
+            if (!res.ok) throw new Error(`http_${res.status}`);
+            return await res.json();
+        } catch (e) {
+            if (e.name === "AbortError") throw new Error("http_0");
+            throw e;
+        } finally {
+            if (minuteur) clearTimeout(minuteur);
+        }
     }
 };

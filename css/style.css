@@ -1,9 +1,10 @@
 :root {
-    --primary: #e63946;
+    /* teintes ajustées pour un contraste AA (≥ 4,5:1) sur blanc et sur le fond clair */
+    --primary: #d33440;
     --secondary: #1d3557;
     --bg: #f1faee;
     --panel: #ffffff;
-    --success: #2a9d8f;
+    --success: #227f73;
     --text: #333;
 }
 
@@ -246,7 +247,7 @@ body {
     margin: 5px;
 }
 
-.btn:hover { background-color: #d62828; transform: translateY(-2px); }
+.btn:hover { background-color: #b82a35; transform: translateY(-2px); }
 .btn:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
 .btn.choice { background-color: var(--secondary); }
 .btn.choice:hover { background-color: #152a45; }
@@ -940,7 +941,7 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     font-weight: 700; margin-bottom: 10px; display: inline-block;
 }
 .btn-defi { background: var(--success); margin-top: 10px; }
-.btn-defi:hover { background: #21867a; }
+.btn-defi:hover { background: #1b665c; }
 .trophee-toast {
     position: fixed; top: 20px; left: 50%; transform: translate(-50%, -150%); z-index: 200;
     background: var(--secondary); color: white; border-radius: 12px; padding: 12px 18px;
@@ -949,3 +950,37 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 }
 .trophee-toast.visible { transform: translate(-50%, 0); }
 .trophee-toast i { font-size: 1.8em; color: #f4a261; }
+
+/* ====== Outils prof et séance (itération 21) ====== */
+.btn-mini { padding: 4px 10px; font-size: 0.8em; margin-left: 8px; }
+.prof-aide { text-align: left; font-size: 0.9em; margin-bottom: 8px; }
+#prof-promos select, #prof-promos input { padding: 4px; border-radius: 6px; border: 1px solid #ccc; font-family: inherit; }
+.idee-chapitre { background: white; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: left; }
+.idee-ligne { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: baseline; padding: 4px 0; border-top: 1px solid #f0f0f0; font-size: 0.92em; }
+.idee-pct { font-weight: 800; color: var(--primary); }
+.idee-nb { color: #666; font-size: 0.85em; white-space: nowrap; }
+.defi-classe { margin-top: 14px; padding: 10px 14px; background: #eef6ff; border-left: 4px solid #4a90c2; border-radius: 10px; text-align: left; }
+.defi-classe.reussi { background: #e8f6f3; border-left-color: var(--success); }
+.defi-classe i { color: #4a90c2; }
+.defi-barre { height: 10px; background: #dbe7f3; border-radius: 5px; overflow: hidden; margin: 6px 0; }
+.defi-barre div { height: 100%; background: linear-gradient(90deg, #4a90c2, var(--success)); }
+.attente-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+
+/* ====== Mobile (itération 21) ====== */
+@media (max-width: 640px) {
+    body { padding: 0; }
+    .container { border-radius: 0; max-height: none; min-height: 100vh; }
+    #stats-bar { gap: 6px 10px; justify-content: center; font-size: 0.85em; padding: 8px 10px; }
+    .stat-action .lib { display: none; }
+    .stat-action { padding: 4px 10px; }
+    #stats-bar i { margin-right: 4px; }
+    .rang-badge { display: none; }
+    #progress-wrap { font-size: 0.75em; }
+    #dialog-area { padding: 12px 14px; gap: 12px; }
+    .speaker-avatar { width: 44px; height: 44px; min-width: 44px; font-size: 20px; }
+    .prologue, .chapitre-fiche { padding: 18px; }
+    .choix-option { font-size: 0.95em; }
+    .idee-ligne { grid-template-columns: 44px 1fr; }
+    .idee-nb { grid-column: 2; }
+    #prof-promos { font-size: 0.8em; }
+}

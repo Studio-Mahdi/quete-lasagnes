@@ -28,6 +28,8 @@ const Story = {
         if (meta.gameOver) this.gameOver = meta.gameOver;
         if (meta.epilogueVariantes) this.epilogueVariantes = meta.epilogueVariantes;
         if (meta.trophees) this.trophees = meta.trophees;
+        if ("defiClasse" in meta) this.defiClasse = meta.defiClasse;
+        if ("seanceMax" in meta) this.seanceMax = meta.seanceMax;
         if (meta.souvenirs && typeof Carnet !== "undefined") Carnet.hydrater(meta.souvenirs);
     },
 

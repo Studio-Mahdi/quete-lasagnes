@@ -88,6 +88,7 @@ const Levels = {
                     const chapitre = await Api.chargerChapitre(niveau);
                     Story.hydraterChapitre(niveau, chapitre);
                 } catch (e) {
+                    if (e.message === "seance") { this.attenteSeance(niveau); return; }
                     UI.feedbackKo("Chapitre verrouillé — contenu indisponible.");
                     return;
                 }
@@ -167,7 +168,7 @@ const Levels = {
                 profBtn.setAttribute("role", "button");
                 profBtn.tabIndex = 0;
                 profBtn.title = "Vue professeur : progression détaillée de la classe";
-                profBtn.innerHTML = '<i class="fa-solid fa-chalkboard-user"></i> Ma classe';
+                profBtn.innerHTML = '<i class="fa-solid fa-chalkboard-user"></i> <span class="lib">Ma classe</span>';
                 btn.parentElement.insertBefore(profBtn, btn);
                 profBtn.addEventListener("click", () => UI.vueProf(data));
             }
@@ -224,6 +225,36 @@ const Levels = {
         });
     },
 
+    // Mode séance : le prof n'a pas encore ouvert ce chapitre pour la promo
+    attenteSeance(niveau) {
+        UI.setDialog("fa-solid fa-chalkboard-user", "Chef Luigi", "On avance ensemble, Chef : ce chapitre s'ouvrira en classe.");
+        UI.setContent(`
+            <div class="chapitre-fiche">
+                <h2><i class="fa-solid fa-lock"></i> Chapitre ${niveau} : bientôt en classe</h2>
+                <p>Ton enseignant ouvrira ce chapitre lors de la prochaine séance. En attendant, entraîne-toi :</p>
+                <div class="attente-actions">
+                    ${!Bonus.defiFait() ? `<button class="btn btn-defi" id="btn-defi"><i class="fa-solid fa-calendar-check"></i> Défi du jour : +${Bonus.recompenseDefi} €</button>` : ""}
+                    <button class="btn choice" id="btn-relire"><i class="fa-solid fa-book-open"></i> Relire mon carnet</button>
+                </div>
+                ${this._defiClasseHtml()}
+            </div>`);
+        const defi = document.getElementById("btn-defi");
+        if (defi) defi.addEventListener("click", () => Bonus.defi(this.game, () => this.attenteSeance(niveau)));
+        document.getElementById("btn-relire").addEventListener("click", () => Carnet.ouvrir("erreurs"));
+    },
+
+    _defiClasseHtml() {
+        const d = Story.defiClasse;
+        if (!d || !d.effectif) return "";
+        const pct = Math.round(d.atteints * 100 / d.effectif);
+        const date = d.date ? new Date(d.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "";
+        return `<div class="defi-classe ${d.atteints >= d.effectif ? "reussi" : ""}">
+            <div><i class="fa-solid fa-people-group"></i> <b>Défi de la promo</b> : réussir le chapitre ${d.chapitre}${date ? " avant " + date : ""}</div>
+            <div class="defi-barre"><div style="width:${pct}%"></div></div>
+            <div>${d.atteints >= d.effectif ? "🎉 Défi relevé par toute la promo !" : `${d.atteints} / ${d.effectif} Chefs y sont arrivés`}</div>
+        </div>`;
+    },
+
     interlude(scene, suite) {
         UI.setDialog(scene.icone, scene.titre, "");
         UI.setContent(`
@@ -245,6 +276,7 @@ const Levels = {
                 <div class="chapitre-objectif">
                     <i class="fa-solid fa-bullseye"></i> Objectif : réussir l'épreuve sans faire plonger la trattoria.
                 </div>
+                ${this._defiClasseHtml()}
                 ${et.vince ? `<div class="vince-bulle"><i class="fa-solid fa-chess-knight"></i> <div><b>Vince, depuis le Bistrot d'en face :</b> « ${et.vince} »</div></div>` : ""}
                 <button class="btn" id="btn-commencer-epreuve"><i class="fa-solid fa-play"></i> Entrer dans l'épreuve</button>
                 ${niveau > 1 && !Bonus.defiFait() ? `<button class="btn btn-defi" id="btn-defi"><i class="fa-solid fa-calendar-check"></i> Défi du jour : +${Bonus.recompenseDefi} € en caisse</button>` : ""}
@@ -304,8 +336,9 @@ const Levels = {
         if (!ep) { this.complete(); return; }
         const actes = ep.type === "sequence" ? (ep.actes || []) : [ep];
         this._epreuve = { niveau, actes, erreurs: 0 };
-        // Reprise au milieu d'un chapitre (rechargement de page)
-        const repris = this._lireActe(niveau);
+        // Reprise au milieu d'un chapitre : mémoire locale, ou à défaut le serveur
+        // (étapes déjà validées) — robuste à un rechargement ou à un autre appareil.
+        const repris = Math.max(this._lireActe(niveau), Number(et.reprise) || 0);
         this._jouerActe(repris < actes.length ? repris : 0);
     },
 
