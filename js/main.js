@@ -126,7 +126,7 @@ const Game = {
                 return;
             }
             if (res.error) {
-                statut(this._errMessage({ message: res.error }));
+                statut(this._errMessage({ message: res.error, detail: res.detail }));
                 return;
             }
             statut("");
@@ -213,6 +213,9 @@ const Game = {
     },
 
     _errMessage(err) {
+        // erreur serveur : afficher son détail (aide au diagnostic depuis le téléphone)
+        if (err && err.message === "server_error") return "Erreur du serveur" + (err.detail ? " : " + err.detail : "") + ". Réessayez dans un instant.";
+        if (err && /fetch|load failed|network/i.test(err.message || "")) return "Impossible de joindre le serveur : vérifiez votre connexion et réessayez.";
         const map = {
             too_soon: "Un code a déjà été envoyé il y a moins de 30 secondes. Patience !",
             code_invalid: "Code incorrect.",
