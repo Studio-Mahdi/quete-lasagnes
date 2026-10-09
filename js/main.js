@@ -26,10 +26,12 @@ const Game = {
             this.lancerJeu();
         } catch (err) {
             Api.clearSession();
-        } finally {
             UI.setLoginBusy(false);
-            UI.setLoginStatus("");
+            UI.setLoginStatus(err.message === "session_expired" ? this._errMessage(err) : "");
+            return;
         }
+        UI.setLoginBusy(false);
+        UI.setLoginStatus("");
     },
 
     async checkEmail() {
@@ -191,7 +193,10 @@ const Game = {
             invalid_promo: "Code promo inconnu. Vérifiez le code donné par votre enseignant.",
             new_student_needs_name: "Indiquez votre prénom et votre nom.",
             http_0: "Erreur réseau : vérifiez votre connexion.",
-            save_failed: "Sauvegarde impossible."
+            save_failed: "Sauvegarde impossible.",
+            rate_limited: "Trop de demandes de code en ce moment. Réessayez dans quelques minutes.",
+            mail_quota: "Le service d'envoi de codes est saturé pour aujourd'hui. Prévenez votre enseignant.",
+            session_expired: "Session expirée (30 jours). Reconnectez-vous."
         };
         return map[err.message] || "Une erreur est survenue. Réessayez.";
     }
