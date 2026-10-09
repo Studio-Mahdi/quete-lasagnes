@@ -23,8 +23,29 @@ const UI = {
     },
 
     setLoginBusy(busy) {
-        this.$("btn-login").disabled = busy;
-        if (busy) this.setLoginStatus("Envoi du code en cours...");
+        this.boutonOccupe("btn-login", busy, "Vérification…");
+        if (busy) this.setLoginStatus("Un instant…");
+    },
+
+    setRegisterStatus(text) {
+        this.$("register-error").innerText = text || "";
+    },
+
+    // Bouton « en cours » : désactivé + roue qui tourne, libellé d'origine restauré ensuite.
+    // Évite le double clic pendant les quelques secondes d'envoi de l'e-mail.
+    boutonOccupe(id, busy, libelle) {
+        const b = this.$(id);
+        if (!b) return;
+        if (busy) {
+            if (!b.dataset.libelle) b.dataset.libelle = b.innerHTML;
+            b.disabled = true;
+            b.classList.add("occupe");
+            b.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${libelle}`;
+        } else {
+            b.disabled = false;
+            b.classList.remove("occupe");
+            if (b.dataset.libelle) { b.innerHTML = b.dataset.libelle; delete b.dataset.libelle; }
+        }
     },
 
     setCodeStatus(text) {
@@ -32,7 +53,7 @@ const UI = {
     },
 
     setCodeBusy(busy) {
-        this.$("btn-verify").disabled = busy;
+        this.boutonOccupe("btn-verify", busy, "Vérification…");
         if (busy) this.setCodeStatus("");
     },
 

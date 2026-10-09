@@ -39,11 +39,17 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* centré quand ça tient, défilable depuis le haut sinon (« center » coupait le haut) */
+    justify-content: flex-start;
     height: 100%;
+    overflow-y: auto;
+    padding: 20px 0;
     text-align: center;
     background-color: var(--bg);
 }
+.auth-screen > :first-child { margin-top: auto; }
+.auth-screen > :last-child { margin-bottom: auto; }
+.btn.occupe { opacity: 0.85; cursor: progress; }
 
 .auth-screen h1 {
     font-size: 3em;
@@ -989,3 +995,14 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 .saisie-droite { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .saisie-calcul { font-size: 0.85em; color: var(--success); font-weight: 700; min-height: 1.1em; }
 .saisie-calcul.invalide { color: var(--primary); }
+
+/* ====== Mobile : écrans de connexion (itération 24) ======
+   Sur téléphone, 100vh inclut la zone sous les barres du navigateur : centrer le
+   bloc sur cette hauteur poussait le haut hors de l'écran. On part du haut, sur
+   toute la hauteur réellement visible (dvh), sans blanc en dessous. */
+@media (max-width: 640px) {
+    body { align-items: flex-start; padding: 0; min-height: 100vh; min-height: 100dvh; }
+    .container { min-height: 100vh; min-height: 100dvh; max-height: none; height: auto; border-radius: 0; box-shadow: none; }
+    .auth-screen { flex: 1; height: auto; padding: max(24px, env(safe-area-inset-top)) 0 24px; }
+    .main-icon { font-size: 3em; }
+}

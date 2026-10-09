@@ -88,12 +88,13 @@ const Game = {
         const prenom = UI.$("prenom-input").value.trim();
         const nom = UI.$("nom-input").value.trim();
         const promo = UI.$("promo-input").value.trim();
+        // messages affichés sur CET écran (avant : sur l'écran de connexion, caché)
         if (!prenom || !nom) {
-            UI.setLoginStatus("Veuillez remplir votre prénom et votre nom.");
+            UI.setRegisterStatus("Veuillez remplir votre prénom et votre nom.");
             return;
         }
         if (!promo) {
-            UI.setLoginStatus("Le code de votre promo est obligatoire (donné par votre enseignant).");
+            UI.setRegisterStatus("Le code de votre promo est obligatoire (donné par votre enseignant).");
             return;
         }
         this._pendingNames = { prenom, nom, promo };
@@ -105,8 +106,14 @@ const Game = {
     },
 
     async envoyerCode(estRenvoi) {
-        UI.setCodeBusy(true);
-        UI.setCodeStatus("Envoi du code...");
+        // Retour visible sur l'écran où l'élève a cliqué (inscription, ou « renvoyer » sur
+        // l'écran du code) : avant, tout partait sur l'écran du code, invisible à l'inscription.
+        const statut = estRenvoi ? (t) => UI.setCodeStatus(t) : (t) => UI.setRegisterStatus(t);
+        const bouton = estRenvoi ? "btn-resend" : "btn-register";
+        if (this._envoiEnCours) return;
+        this._envoiEnCours = true;
+        UI.boutonOccupe(bouton, true, "Envoi du code…");
+        statut("Envoi de l'e-mail en cours, cela peut prendre quelques secondes…");
         try {
             const res = await Api.requestCode(
                 this._pendingEmail,
@@ -115,22 +122,23 @@ const Game = {
                 this._pendingNames.promo
             );
             if (res.error === "too_soon") {
-                UI.setCodeStatus(`Attendez ${res.attente}s avant de redemander un code.`);
+                statut(`Un code vient déjà d'être envoyé : attendez ${res.attente} s avant d'en redemander un.`);
                 return;
             }
             if (res.error) {
-                UI.setCodeStatus(this._errMessage(res));
+                statut(this._errMessage({ message: res.error }));
                 return;
             }
-            UI.setCodeStatus("");
+            statut("");
             UI.$("code-input").value = "";
             UI.showScreen("code");
             if (estRenvoi) UI.setCodeStatus("Nouveau code envoyé !");
         } catch (err) {
-            UI.setCodeStatus(this._errMessage(err));
+            statut(this._errMessage(err));
             console.error(err);
         } finally {
-            UI.setCodeBusy(false);
+            this._envoiEnCours = false;
+            UI.boutonOccupe(bouton, false);
         }
     },
 
