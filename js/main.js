@@ -170,6 +170,13 @@ const Game = {
 
     async lancerJeu() {
         UI.showScreen("game");
+        // Affichage immédiat (chiffres + attente visible), puis le récit et le chapitre
+        // sont demandés EN MÊME TEMPS : avant, deux allers-retours successifs vers
+        // Google laissaient un écran vide de longues secondes.
+        this.updateStats();
+        UI.setDialog("fa-solid fa-utensils", "Chef Luigi", "J'allume les fourneaux… un instant.");
+        UI.setContent(`<p class="chargement"><i class="fa-solid fa-spinner fa-spin"></i> Ouverture de la trattoria…</p>`);
+        Levels.precharger(this.joueur.niveau);
         try {
             const meta = await Api.chargerMeta();
             Story.hydrater(meta);

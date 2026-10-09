@@ -77,6 +77,21 @@ const Levels = {
 
     total: 15,
 
+    // Demande du chapitre lancée tôt (pendant le chargement du récit) et réutilisée par load()
+    _prechargements: {},
+    precharger(niveau) {
+        if (niveau >= 1 && niveau <= 15 && !Story.etapes[niveau] && !this._prechargements[niveau]) {
+            const p = Api.chargerChapitre(niveau);
+            p.catch(() => {}); // l'erreur éventuelle est traitée par load()
+            this._prechargements[niveau] = p;
+        }
+    },
+    _chapitre(niveau) {
+        const p = this._prechargements[niveau] || Api.chargerChapitre(niveau);
+        delete this._prechargements[niveau];
+        return p;
+    },
+
     async load(niveau) {
         UI.setFeedback("");
         this._debutNiveau = Date.now();
@@ -85,7 +100,7 @@ const Levels = {
             // Contenu pédagogique servi par l'API (révélation progressive)
             if (!Story.etapes[niveau]) {
                 try {
-                    const chapitre = await Api.chargerChapitre(niveau);
+                    const chapitre = await this._chapitre(niveau);
                     Story.hydraterChapitre(niveau, chapitre);
                 } catch (e) {
                     if (e.message === "seance") { this.attenteSeance(niveau); return; }

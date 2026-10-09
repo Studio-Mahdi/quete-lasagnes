@@ -1006,3 +1006,7 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     .auth-screen { flex: 1; height: auto; padding: max(24px, env(safe-area-inset-top)) 0 24px; }
     .main-icon { font-size: 3em; }
 }
+
+/* Attente au lancement du jeu (le serveur Google répond en quelques secondes) */
+.chargement { text-align: center; color: var(--text-muted, #555); padding: 24px 0; font-size: 1.05rem; }
+.chargement i { margin-right: 8px; color: var(--primary); }
