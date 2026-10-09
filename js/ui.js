@@ -379,6 +379,12 @@ const UI = {
         this.$("speaker-icon").innerHTML = `<i class="${iconClass}"></i>`;
         this.$("speaker-name").innerText = name;
         this.$("dialog-text").innerHTML = text;
+        // Téléphone : la consigne est au-dessus de l'épreuve ; si l'élève a défilé plus bas
+        // (bouton en bas de page), on la ramène à l'écran pour qu'il la lise d'abord.
+        const zone = this.$("dialog-area");
+        if (window.innerWidth <= 640 && zone && zone.getBoundingClientRect().top < 0) {
+            zone.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
     },
 
     setContent(html) {

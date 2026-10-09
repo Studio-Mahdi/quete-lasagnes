@@ -1010,3 +1010,15 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 /* Attente au lancement du jeu (le serveur Google répond en quelques secondes) */
 .chargement { text-align: center; color: var(--text-muted, #555); padding: 24px 0; font-size: 1.05rem; }
 .chargement i { margin-right: 8px; color: var(--primary); }
+
+/* Téléphone : la consigne de Luigi passe AVANT l'épreuve (en bas, l'élève voyait les
+   réponses avant la question et devait défiler pour la lire). */
+@media (max-width: 640px) {
+    #action-area { order: 2; }
+    #dialog-area {
+        order: 1; padding: 12px 15px; gap: 12px; flex-wrap: nowrap; align-items: flex-start;
+        border-top: none; border-bottom: 1px solid #eee; scroll-margin-top: 8px;
+    }
+    .speaker-avatar { width: 42px; height: 42px; min-width: 42px; font-size: 19px; }
+    #save-status { font-size: 0.8em; align-self: center; }
+}
