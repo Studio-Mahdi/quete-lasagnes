@@ -142,8 +142,12 @@ const Levels = {
         Api.track("victoire", g.joueur.niveau - 1, { dureeMs: Date.now() - (this._debutNiveau || Date.now()) });
         this._evaluerTrophees();
         this.recapituler(g.joueur.niveau - 1);
-        const nxt = () => {
-            if (!Embuches.peutFrapper(g)) this.load(g.joueur.niveau);
+        // peutFrapper est async : attendre sa réponse (une Promise est toujours
+        // "vraie", le chapitre suivant ne se chargeait donc jamais sans embûche).
+        const nxt = async () => {
+            let frappe = false;
+            try { frappe = await Embuches.peutFrapper(g); } catch (e) { console.error(e); }
+            if (!frappe) this.load(g.joueur.niveau);
         };
         setTimeout(nxt, 4200);
     },
@@ -235,7 +239,16 @@ const Levels = {
         });
     },
 
-    victoire() {
+    async victoire() {
+        // L'épilogue n'est servi qu'une fois la quête terminée : la méta chargée
+        // au début de la session ne le contient pas encore.
+        if (!Story.epilogue) {
+            try { Story.hydrater(await Api.chargerMeta()); } catch (e) { console.error(e); }
+        }
+        if (!Story.epilogue) {
+            UI.feedbackKo("Épilogue indisponible — recharge la page pour réessayer.");
+            return;
+        }
         Sons.fanfare();
         this._evaluerTrophees();
         UI.setDialog("fa-solid fa-trophy", "Chef Luigi", Story.epilogue.texte.replace(/<[^>]*>/g, "").slice(0, 150) + "...");
@@ -365,8 +378,9 @@ const Levels = {
                 <div class="bilan-col" id="col-a"><b>${ep.colonneA || "Colonne A"}</b><div class="bilan-total" id="total-a">0 €</div></div>
                 <div class="bilan-col" id="col-b"><b>${ep.colonneB || "Colonne B"}</b><div class="bilan-total" id="total-b">0 €</div></div>
             </div>
+            <p class="cartes-aide"><i class="fa-solid fa-hand-pointer"></i> Clique sur une carte pour la placer : 1<sup>er</sup> clic → ${ep.colonneA || "Colonne A"}, 2<sup>e</sup> clic → ${ep.colonneB || "Colonne B"}, 3<sup>e</sup> clic → retour.</p>
             <div style="margin-top:10px;" id="card-pool">
-                ${(ep.cartes || []).map((c, i) => `<span class="card-item" data-cible="${c.cible}" data-montant="${c.montant}" tabindex="0" role="button">${c.libelle}</span>`).join("")}
+                ${(ep.cartes || []).map((c, i) => `<span class="card-item" data-i="${i}" data-montant="${c.montant}" tabindex="0" role="button">${c.libelle}</span>`).join("")}
             </div>
             <button class="btn" style="margin-top:15px;" id="btn-ep-cartes">${ep.bouton || "Valider"}</button>
             ${ep.fiche ? Fiches.bouton(ep.fiche) : ""}`);
@@ -378,10 +392,12 @@ const Levels = {
             document.getElementById("total-b").innerText = b + " €";
             return { a, b };
         };
+        // L'élève choisit la colonne : pioche -> A -> B -> pioche.
+        // (Avant, chaque carte partait d'elle-même dans la bonne colonne.)
+        const cycle = { "card-pool": "col-a", "col-a": "col-b", "col-b": "card-pool" };
         document.querySelectorAll(".card-item").forEach(card => {
             const deplacer = () => {
-                const col = card.dataset.cible === "a" ? "col-a" : "col-b";
-                document.getElementById(col).appendChild(card);
+                document.getElementById(cycle[card.parentElement.id] || "col-a").appendChild(card);
                 totaux();
             };
             card.addEventListener("click", deplacer);
@@ -393,7 +409,7 @@ const Levels = {
             const places = Array.from(document.querySelectorAll(".bilan-col .card-item"));
             const faux = places.filter(c => {
                 const col = c.parentElement.id === "col-a" ? "a" : "b";
-                return col !== c.dataset.cible;
+                return col !== ep.cartes[Number(c.dataset.i)].cible;
             });
             const t = totaux();
             if (places.length < (ep.cartes || []).length) {

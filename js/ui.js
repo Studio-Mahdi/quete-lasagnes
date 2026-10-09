@@ -3,6 +3,14 @@ const UI = {
 
     $(id) { return document.getElementById(id); },
 
+    // Échappe un texte saisi par un élève (prénom, nom, promo, email) avant
+    // de l'insérer dans du HTML : empêche l'exécution de code (XSS).
+    esc(v) {
+        return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    },
+
     showScreen(name) {
         const screens = ["login-screen", "register-screen", "code-screen", "game-screen"];
         screens.forEach(id => { this.$(id).style.display = "none"; });
@@ -30,15 +38,15 @@ const UI = {
 
     updateStats(joueur) {
         this._animerNombre("val-pv", joueur.pv);
-        this._animerNombre("val-treso", joueur.tresorerie, " €");
+        this._animerNombre("val-treso", joueur.tresorerie);
         this._animerNombre("val-stock", joueur.stock);
         this.$("val-nom").innerText = joueur.prenom;
         this.$("val-rang").innerText = Story.rangPour(joueur.niveau);
-        this.$("val-chapitre").innerText = `${joueur.niveau}/15`;
+        this.$("val-chapitre").innerText = `${Math.min(joueur.niveau, 15)}/15`;
 
-        const pct = Math.min(joueur.niveau - 1, 15) / 15 * 100;
-        this.$("progress-fill").style.width = pct + "%";
-        this.$("progress-label").innerText = `${joueur.niveau - 1} épreuve${joueur.niveau - 1 > 1 ? "s" : ""} sur 14`;
+        const reussies = Math.min(Math.max(joueur.niveau - 1, 0), 15);
+        this.$("progress-fill").style.width = (reussies / 15 * 100) + "%";
+        this.$("progress-label").innerText = `${reussies} épreuve${reussies > 1 ? "s" : ""} sur 15`;
     },
 
     _animerNombre(id, cible, suffixe) {
@@ -67,7 +75,7 @@ const UI = {
                 <h2 style="color:#1d3557;margin:10px 0 4px;">La Quête des Lasagnes</h2>
                 <p style="font-style:italic;color:#666;margin:0 0 18px;">Certificat de Maîtresse de Gestion Financière</p>
                 <p>Ce certifie que</p>
-                <p style="font-size:1.5em;font-weight:bold;color:#e63946;margin:6px 0;">${joueur.prenom} ${joueur.nom || ""}</p>
+                <p style="font-size:1.5em;font-weight:bold;color:#e63946;margin:6px 0;">${UI.esc(joueur.prenom)} ${UI.esc(joueur.nom)}</p>
                 <p>a relevé les 15 épreuves de la trattoria :</p>
                 <p style="font-size:0.9em;color:#444;line-height:1.7;">Capital · Charges fixes · Seuil de rentabilité · BFR · Amortissement · Bilan · TVA · Compte de résultat · Marge · Stocks · Provisions · Emprunt · Trésorerie · EBE · Analyse finale</p>
                 <p>Trophées obtenus : <b>${gagne}/9</b> — Réputation : <b>${joueur.pv} PV</b></p>
@@ -110,13 +118,13 @@ const UI = {
             return min < 1 ? "<1 min" : min + " min";
         };
         let rowsEtudiants = etudiants.map((e, i) => `
-            <tr class="prof-etudiant-row" data-email="${e.email || ""}" style="cursor:pointer;" title="Voir le détail">
+            <tr class="prof-etudiant-row" data-email="${UI.esc(e.email)}" style="cursor:pointer;" title="Voir le détail">
                 <td>${i + 1}</td>
-                <td><b>${e.prenom} ${e.nom}</b> ${e.trophees && e.trophees.length ? `<span title="${e.trophees.length} trophée(s)">🏆 ${e.trophees.length}/9</span>` : ""}</td>
-                <td>${e.promo || "—"}</td>
-                <td>Chap. ${e.niveau}/15</td>
+                <td><b>${UI.esc(e.prenom)} ${UI.esc(e.nom)}</b> ${e.trophees && e.trophees.length ? `<span title="${e.trophees.length} trophée(s)">🏆 ${e.trophees.length}/9</span>` : ""}</td>
+                <td>${UI.esc(e.promo) || "—"}</td>
+                <td>Chap. ${Math.min(e.niveau, 15)}/15</td>
                 <td>${e.pv} PV</td>
-                <td>${e.treso} €</td>
+                <td>${UI.esc(e.treso)} €</td>
                 <td><i class="fa-solid fa-chevron-right"></i></td>
             </tr>`).join("");
 
@@ -128,7 +136,7 @@ const UI = {
                 <tr><th>Promo</th><th>Effectif</th><th>Niveau moyen</th><th>Meilleur niveau</th></tr>
                 ${Object.entries(resumePromos).map(([p, r]) => `
                 <tr>
-                    <td><b>${p}</b></td>
+                    <td><b>${UI.esc(p)}</b></td>
                     <td>${r.effectif}</td>
                     <td>${r.niveauMoyen}</td>
                     <td>${r.niveauMax}</td>
@@ -226,10 +234,10 @@ const UI = {
         zone.innerHTML = `
             <div class="grimoire-panel" style="max-width:760px;">
                 <div class="grimoire-header">
-                    <h2><i class="fa-solid fa-user-graduate"></i> ${d.prenom} ${d.nom}</h2>
+                    <h2><i class="fa-solid fa-user-graduate"></i> ${UI.esc(d.prenom)} ${UI.esc(d.nom)}</h2>
                     <button class="btn" id="btn-eleve-close"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <p class="subtitle">${d.promo ? "Promo " + d.promo + " · " : ""}Chapitre ${d.niveau}/15 · ${d.pv} PV · ${d.treso} €</p>
+                <p class="subtitle">${d.promo ? "Promo " + UI.esc(d.promo) + " · " : ""}Chapitre ${Math.min(d.niveau, 15)}/15 · ${UI.esc(d.pv)} PV · ${UI.esc(d.treso)} €</p>
                 <h3 style="color:var(--secondary);">Trophées (${(d.trophees || []).length}/9)</h3>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">${tropheesHtml}</div>
                 <h3 style="color:var(--secondary);margin-top:20px;">Parcours chapitre par chapitre</h3>
@@ -250,8 +258,8 @@ const UI = {
             this.$("classement-list").innerHTML = liste.map((j, i) => `
                 <div class="classement-item ${j.prenom === prenomSelf ? "self" : ""}">
                     <span class="classement-rang">${i + 1}</span>
-                    <b>${j.prenom} ${j.nom}</b>
-                    <span class="classement-chapitre"><i class="fa-solid fa-map"></i> Chap. ${j.niveau}/15</span>
+                    <b>${UI.esc(j.prenom)} ${UI.esc(j.nom)}</b>
+                    <span class="classement-chapitre"><i class="fa-solid fa-map"></i> Chap. ${Math.min(j.niveau, 15)}/15</span>
                     <span class="classement-pv"><i class="fa-solid fa-heart"></i> ${j.pv}</span>
                 </div>`).join("");
         }

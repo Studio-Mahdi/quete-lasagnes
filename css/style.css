@@ -146,7 +146,9 @@ body {
     text-align: center;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* flex-start + marges auto (ci-dessous) : centré quand le contenu est court,
+       défilable depuis le haut quand il est long. "center" coupait le haut. */
+    justify-content: flex-start;
     align-items: center;
     background-color: var(--bg);
     overflow-y: auto;
@@ -157,6 +159,12 @@ body {
     font-size: 1.8em;
     margin: 0 0 10px 0;
 }
+
+#action-area > :first-child { margin-top: auto; }
+#action-area > :last-child { margin-bottom: auto; }
+#action-area > * { flex-shrink: 0; }
+
+.cartes-aide { color: #666; font-size: 0.9em; margin: 10px 0 0; }
 
 #quest-content {
     width: 100%;
