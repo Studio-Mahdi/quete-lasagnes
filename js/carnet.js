@@ -60,6 +60,11 @@ const Carnet = {
         return `<td class="${x < 0 ? "ko" : "ok"}">${this._euros(x, true)}</td>`;
     },
 
+    // Solde de la caisse après l'opération : en rouge seulement s'il est vraiment négatif
+    _solde(x) {
+        return `<td class="solde ${x < 0 ? "ko" : ""}">${this._euros(x)}</td>`;
+    },
+
     async _caisse(corps) {
         corps.innerHTML = `<p class="chargement"><i class="fa-solid fa-spinner fa-spin"></i> Ouverture du livre de caisse…</p>`;
         let donnees;
@@ -73,23 +78,24 @@ const Carnet = {
             return;
         }
         const titre = (n) => { const s = this.souvenirs.find(x => x.n === n); return s ? s.titre : ""; };
-        let html = `<p class="subtitle"><b>Caisse</b> = l'argent qui entre et qui sort. <b>Résultat</b> = la richesse créée ou consommée. Ils ne bougent pas toujours ensemble : c'est tout le secret de la trattoria.</p>
-            <table class="journal"><thead><tr><th>Opération</th><th>Caisse</th><th>Résultat</th></tr></thead><tbody>`;
+        let html = `<p class="subtitle"><b>Entrée / sortie</b> = l'argent qui entre ou sort de la caisse. <b>Solde</b> = ce qu'il reste dans la caisse après l'opération. <b>Résultat</b> = la richesse créée ou consommée. Caisse et résultat ne bougent pas toujours ensemble : c'est tout le secret de la trattoria.</p>
+            <table class="journal"><thead><tr><th>Opération</th><th>Entrée<br>/ sortie</th><th>Solde</th><th>Résultat</th></tr></thead><tbody>`;
         let cumul = 0, totalRes = 0;
         const chapitres = [...new Set(journal.map(x => x.n))].sort((a, b) => a - b);
         for (const n of chapitres) {
             const lignes = journal.filter(x => x.n === n);
             const c = lignes.reduce((s, x) => s + x.caisse, 0), r = lignes.reduce((s, x) => s + x.resultat, 0);
             cumul += c; totalRes += r;
-            html += `<tr class="journal-chapitre"><td colspan="3">Chapitre ${n}${titre(n) ? " — " + titre(n) : ""}</td></tr>`;
-            html += lignes.map(x => `<tr><td>${x.libelle}</td>${this._cellule(x.caisse)}${this._cellule(x.resultat)}</tr>`).join("");
-            html += `<tr class="journal-total"><td>Total du chapitre <span class="journal-cumul">· caisse cumulée ${this._euros(cumul)}</span></td>${this._cellule(c)}${this._cellule(r)}</tr>`;
+            html += `<tr class="journal-chapitre"><td colspan="4">Chapitre ${n}${titre(n) ? " — " + titre(n) : ""}</td></tr>`;
+            let solde = cumul - c;
+            html += lignes.map(x => { solde += x.caisse; return `<tr><td>${x.libelle}</td>${this._cellule(x.caisse)}${this._solde(solde)}${this._cellule(x.resultat)}</tr>`; }).join("");
+            html += `<tr class="journal-total"><td>Total du chapitre</td>${this._cellule(c)}${this._solde(cumul)}${this._cellule(r)}</tr>`;
         }
         const autres = Math.round((caisseJeu - cumul) * 100) / 100;
         html += `</tbody><tfoot>
-            <tr><td>Total des opérations de la trattoria</td>${this._cellule(cumul)}${this._cellule(totalRes)}</tr>
-            ${autres ? `<tr><td>Autres mouvements (embûches, défis, révisions)</td>${this._cellule(autres)}<td class="nul">—</td></tr>` : ""}
-            <tr class="journal-final"><td>Caisse aujourd'hui</td><td colspan="2">${this._euros(caisseJeu)}</td></tr>
+            <tr><td>Total des opérations de la trattoria</td>${this._cellule(cumul)}${this._solde(cumul)}${this._cellule(totalRes)}</tr>
+            ${autres ? `<tr><td>Autres mouvements (embûches, défis, révisions)</td>${this._cellule(autres)}${this._solde(caisseJeu)}<td class="nul">—</td></tr>` : ""}
+            <tr class="journal-final"><td>Caisse aujourd'hui</td><td colspan="3">${this._euros(caisseJeu)}</td></tr>
         </tfoot></table>`;
         if (aVenir.length) {
             html += `<div class="journal-avenir"><b><i class="fa-solid fa-hourglass-half"></i> À venir</b>` +

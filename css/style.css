@@ -1044,3 +1044,8 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 .journal-avenir { margin-top: 12px; padding: 10px 12px; border-left: 4px solid #d4a017; background: #fff8e6; border-radius: 6px; text-align: left; }
 .journal-avenir b.ok { color: var(--success); } .journal-avenir b.ko { color: var(--primary); }
 @media (max-width: 640px) { .journal { font-size: 0.82em; } .journal td, .journal th { padding: 4px 5px; } }
+.journal td.solde { color: var(--secondary); font-weight: 600; background: #f6f8fb; }
+.journal td.solde.ko { color: var(--primary); }
+.journal th { white-space: normal !important; vertical-align: bottom; }
+#carnet-corps { overflow-x: auto; }
+@media (max-width: 640px) { .journal { font-size: 0.78em; } .journal td, .journal th { padding: 4px 3px; } }
