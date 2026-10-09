@@ -8,12 +8,6 @@ const Levels = {
 
     init(game) {
         this.game = game;
-        UI._avantKo = () => {
-            game.historique.pvPerdus++;
-            if (game.joueur.niveau >= 1 && game.joueur.niveau <= 15) {
-                Api.track("echec", game.joueur.niveau, { pv: game.joueur.pv });
-            }
-        };
         UI.setOnKo(() => {
             if (game.joueur.pv <= 0 && game.joueur.niveau <= 15) this.gameOver();
         });
@@ -209,18 +203,7 @@ const Levels = {
                 <button class="btn" id="btn-prologue"> ${Story.prologue.bouton} <i class="fa-solid fa-arrow-right"></i></button>
             </div>`);
         document.getElementById("btn-prologue").addEventListener("click", () => {
-            this.epreuveCapital();
-        });
-    },
-
-    epreuveCapital() {
-        const et = Story.etapes[1] || {};
-        const ep = et.epreuve || {};
-        UI.setDialog(ep.dialogueIcone, ep.dialogueNom, ep.dialogueTexte);
-        UI.setContent(`<button class="btn" id="btn-n1">${ep.bouton}</button>`);
-        document.getElementById("btn-n1").addEventListener("click", () => {
-            this._appliquerImpact(ep.impact);
-            this.complete();
+            this.jouerEpreuve(1);
         });
     },
 
@@ -265,33 +248,96 @@ const Levels = {
         });
     },
 
-    // ---------- Moteur générique d'épreuves (données 100% serveur) ----------
-    // L'étudiant ne voit un énoncé/une réponse que lorsqu'il a atteint le chapitre.
-    // Les effets (impacts, validation, mise à jour visuelle) sont des chaînes servies
-    // par l'API — même contrat de confiance que reactionEffet des embûches.
+    // ---------- Moteur générique d'épreuves ----------
+    // Le serveur envoie l'énoncé SANS la solution (chiffres propres à l'élève).
+    // Chaque réponse part à l'API ("repondre") qui corrige, explique l'erreur
+    // (autopsie), trace l'idée fausse pour le prof et valide la progression.
 
     jouerEpreuve(niveau) {
         const et = Story.etapes[niveau];
         const ep = et && et.epreuve;
         if (!ep) { this.complete(); return; }
-        this._renderEpreuve(ep, () => this.complete());
+        const actes = ep.type === "sequence" ? (ep.actes || []) : [ep];
+        this._epreuve = { niveau, actes, erreurs: 0 };
+        // Reprise au milieu d'un chapitre (rechargement de page)
+        const repris = this._lireActe(niveau);
+        this._jouerActe(repris < actes.length ? repris : 0);
     },
 
-    _renderEpreuve(ep, onDone) {
-        UI.setDialog(ep.dialogueIcone, ep.dialogueNom, ep.dialogueTexte);
-        if (ep.type === "info") {
-            this._moteurInfo(ep, onDone);
-        } else if (ep.type === "choix") {
-            this._moteurChoix(ep, onDone);
-        } else if (ep.type === "slider") {
-            this._moteurSlider(ep, onDone);
-        } else if (ep.type === "cartes") {
-            this._moteurCartes(ep, onDone);
-        } else if (ep.type === "sequence") {
-            this._moteurSequence(ep, onDone);
-        } else {
-            onDone();
+    _cleActe(niveau) { return "ql_acte_" + niveau; },
+    _lireActe(niveau) {
+        try { return Number(localStorage.getItem(this._cleActe(niveau))) || 0; } catch (e) { return 0; }
+    },
+    _ecrireActe(niveau, i) {
+        try {
+            if (i === null) localStorage.removeItem(this._cleActe(niveau));
+            else localStorage.setItem(this._cleActe(niveau), String(i));
+        } catch (e) { /* stockage indisponible : pas de reprise */ }
+    },
+
+    _jouerActe(i) {
+        const { niveau, actes } = this._epreuve;
+        const acte = actes[i];
+        if (!acte) { this._ecrireActe(niveau, null); this.complete(); return; }
+        this._ecrireActe(niveau, i);
+        UI.setFeedback("");
+        UI.setDialog(acte.dialogueIcone, acte.dialogueNom, acte.dialogueTexte);
+        const type = acte.type || "info";
+        const moteur = {
+            info: this._moteurInfo, choix: this._moteurChoix, slider: this._moteurSlider,
+            cartes: this._moteurCartes, saisie: this._moteurSaisie, jauges: this._moteurJauges
+        }[type] || this._moteurInfo;
+        moteur.call(this, acte, (reponse, bouton) => this._soumettre(i, acte, reponse, bouton));
+    },
+
+    async _soumettre(i, acte, reponse, bouton) {
+        const ep = this._epreuve;
+        if (bouton) bouton.disabled = true;
+        let res;
+        try {
+            res = await Api.repondre(ep.niveau, i, reponse);
+        } catch (e) {
+            if (bouton) bouton.disabled = false;
+            UI.setFeedback(`<span class="ko">Connexion perdue avec la trattoria. Réessaie dans un instant.</span>`);
+            return;
         }
+        document.querySelectorAll(".erreur-surlignee").forEach(el => el.classList.remove("erreur-surlignee"));
+        if (res.ok) {
+            this._appliquerImpact(res.impact);
+            if (res.historique && !(res.parfait && ep.erreurs > 0)) this.game.historique[res.historique] = true;
+            if (res.feedback) UI.feedbackOk(res.feedback);
+            const suite = () => this._jouerActe(i + 1);
+            // l'info s'enchaîne vite, une réussite laisse le temps de lire
+            if ((acte.type || "info") === "info" && !res.feedback) suite();
+            else this._boutonSuite(suite);
+            return;
+        }
+        ep.erreurs++;
+        const pvAvant = this.game.joueur.pv;
+        this._appliquerImpact(res.impact);
+        if (this.game.joueur.pv < pvAvant) {
+            this.game.historique.pvPerdus++;
+            Api.track("echec", ep.niveau, { pv: this.game.joueur.pv });
+        }
+        (res.erreurs || []).forEach(k => {
+            const el = document.querySelector(`[data-k="${k}"]`);
+            if (el) el.classList.add("erreur-surlignee");
+        });
+        const autopsie = res.autopsie ? `<div class="autopsie"><b><i class="fa-solid fa-magnifying-glass"></i> L'autopsie de Luigi</b><div>${res.autopsie}</div></div>` : "";
+        const indice = res.indice ? `<div class="indice"><i class="fa-solid fa-lightbulb"></i> ${res.indice}</div>` : "";
+        UI.feedbackKo(`${res.feedback || "Pas tout à fait..."}${autopsie}${indice}`);
+        this.game.save();
+        if (bouton) bouton.disabled = false;
+    },
+
+    _boutonSuite(suite) {
+        const zone = document.getElementById("feedback-msg");
+        const b = document.createElement("button");
+        b.className = "btn btn-suite";
+        b.innerHTML = 'Continuer <i class="fa-solid fa-arrow-right"></i>';
+        b.addEventListener("click", () => { b.remove(); suite(); });
+        zone.appendChild(b);
+        b.focus();
     },
 
     _appliquerImpact(impact) {
@@ -303,103 +349,89 @@ const Levels = {
         this.game.updateStats();
     },
 
-    _moteurInfo(ep, onDone) {
+    _executer(code, ...args) {
+        // Les visualisations sont servies sous forme "p => { ... }" : il faut
+        // évaluer l'expression PUIS l'appeler (avant, elles ne s'exécutaient jamais).
+        if (!code) return;
+        try {
+            const f = Function(`return (${code});`)();
+            if (typeof f === "function") f(...args);
+        } catch (e) { console.error(e); }
+    },
+
+    _moteurInfo(acte, soumettre) {
         UI.setContent(`
-            <div class="interactive-box" style="width:100%;">
-                ${ep.contenu || ""}
-            </div>
-            <button class="btn" id="btn-ep-info">${ep.bouton || "Continuer"} <i class="fa-solid fa-arrow-right"></i></button>
-            ${ep.fiche ? Fiches.bouton(ep.fiche) : ""}`);
-        document.getElementById("btn-ep-info").addEventListener("click", () => {
-            if (ep.revealEffet) { try { Function("j", ep.revealEffet)(this.game.joueur); } catch (e) { } }
-            if (ep.succes) UI.feedbackOk(ep.succes);
-            this._appliquerImpact(ep.impact);
-            if (ep.historique) this.game.historique[ep.historique] = true;
-            onDone();
+            ${acte.contenu ? `<div class="interactive-box" style="width:100%;">${acte.contenu}</div>` : ""}
+            <button class="btn" id="btn-ep">${acte.bouton || "Continuer"} <i class="fa-solid fa-arrow-right"></i></button>
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
+        const b = document.getElementById("btn-ep");
+        b.addEventListener("click", () => {
+            if (acte.revealEffet) { try { Function("j", acte.revealEffet)(this.game.joueur); } catch (e) { } }
+            soumettre(null, b);
         });
     },
 
-    _moteurChoix(ep, onDone) {
+    _moteurChoix(acte, soumettre) {
         UI.setContent(`
-            ${ep.contenu || ""}
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                ${(ep.options || []).map((o, i) => `<button class="btn ${o.penalite ? "choice" : ""}" id="btn-ep-${i}">${o.libelle}</button>`).join("")}
+            ${acte.contenu || ""}
+            <div class="choix-liste">
+                ${(acte.options || []).map((o, i) => `<button class="btn choix-option" data-k="${i}">${o.libelle}</button>`).join("")}
             </div>
-            ${ep.fiche ? Fiches.bouton(ep.fiche) : ""}`);
-        (ep.options || []).forEach((o, i) => {
-            document.getElementById(`btn-ep-${i}`).addEventListener("click", () => {
-                this._appliquerImpact(o.impact);
-                if (o.historique) this.game.historique[o.historique] = true;
-                if (o.reussi) {
-                    UI.feedbackOk(o.feedback || "");
-                    onDone();
-                } else {
-                    UI.feedbackKo(o.feedback || "");
-                }
-            });
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
+        document.querySelectorAll(".choix-option").forEach(b => {
+            b.addEventListener("click", () => soumettre(Number(b.dataset.k), b));
         });
     },
 
-    _moteurSlider(ep, onDone) {
+    _moteurSlider(acte, soumettre) {
+        const pas = acte.pas || 1;
+        const init = acte.initial != null ? acte.initial : acte.min;
         UI.setContent(`
             <div class="interactive-box">
-                ${ep.contenu || ""}
-                <label>${ep.libelle} : <b id="ep-val">${ep.min}</b> ${ep.unite || ""}</label>
-                <input type="range" id="ep-slide" min="${ep.min}" max="${ep.max}" value="${ep.initial != null ? ep.initial : ep.min}">
-                ${ep.lecture || ""}
+                ${acte.contenu || ""}
+                <label>${acte.libelle} : <b id="ep-val">${init}</b> ${acte.unite || ""}</label>
+                <input type="range" id="ep-slide" min="${acte.min}" max="${acte.max}" step="${pas}" value="${init}">
+                ${acte.lecture || ""}
             </div>
-            <button class="btn" id="btn-ep-slider">${ep.bouton || "Valider"}</button>
-            ${ep.fiche ? Fiches.bouton(ep.fiche) : ""}`);
+            <button class="btn" id="btn-ep">${acte.bouton || "Valider"}</button>
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
         const slider = document.getElementById("ep-slide");
-        const update = () => {
+        const maj = () => {
             const p = Number(slider.value);
             document.getElementById("ep-val").innerText = p;
-            if (ep.live) { try { Function("p", ep.live)(p); } catch (e) { } }
+            this._executer(acte.live, p);
         };
-        slider.addEventListener("input", update);
-        update();
-        document.getElementById("btn-ep-slider").addEventListener("click", () => {
-            const p = Number(slider.value);
-            const ok = ep.valider ? Function("p", "return (" + ep.valider + ")")(p) : true;
-            if (ok) {
-                if (ep.impactReussiteEffet) { try { Function("j", "p", ep.impactReussiteEffet)(this.game.joueur, p); } catch (e) { } this.game.updateStats(); }
-                if (ep.historique) this.game.historique[ep.historique] = true;
-                UI.feedbackOk((ep.feedbackOk || "").replace(/\{p\}/g, p));
-                onDone();
-            } else {
-                this._appliquerImpact(ep.impactEchec);
-                UI.feedbackKo((ep.feedbackKo || "").replace(/\{p\}/g, p));
-            }
-        });
+        slider.addEventListener("input", maj);
+        maj();
+        const b = document.getElementById("btn-ep");
+        b.addEventListener("click", () => soumettre(Number(slider.value), b));
     },
 
-    _moteurCartes(ep, onDone) {
+    _moteurCartes(acte, soumettre) {
+        const cols = [["a", acte.colonneA || "Colonne A"], ["b", acte.colonneB || "Colonne B"]];
+        if (acte.colonneC) cols.push(["c", acte.colonneC]);
         UI.setContent(`
-            ${ep.contenu || ""}
-            <div class="bilan-grid">
-                <div class="bilan-col" id="col-a"><b>${ep.colonneA || "Colonne A"}</b><div class="bilan-total" id="total-a">0 €</div></div>
-                <div class="bilan-col" id="col-b"><b>${ep.colonneB || "Colonne B"}</b><div class="bilan-total" id="total-b">0 €</div></div>
+            ${acte.contenu || ""}
+            <p class="cartes-aide"><i class="fa-solid fa-hand-pointer"></i> Clique sur une carte pour la faire passer d'une colonne à l'autre : ${cols.map(c => c[1]).join(" → ")} → retour.</p>
+            <div class="bilan-grid ${cols.length === 3 ? "trois" : ""}">
+                ${cols.map(([k, nom]) => `<div class="bilan-col" id="col-${k}"><b>${nom}</b><div class="bilan-total" id="total-${k}">0 €</div></div>`).join("")}
             </div>
-            <p class="cartes-aide"><i class="fa-solid fa-hand-pointer"></i> Clique sur une carte pour la placer : 1<sup>er</sup> clic → ${ep.colonneA || "Colonne A"}, 2<sup>e</sup> clic → ${ep.colonneB || "Colonne B"}, 3<sup>e</sup> clic → retour.</p>
             <div style="margin-top:10px;" id="card-pool">
-                ${(ep.cartes || []).map((c, i) => `<span class="card-item" data-i="${i}" data-montant="${c.montant}" tabindex="0" role="button">${c.libelle}</span>`).join("")}
+                ${(acte.cartes || []).map((c, i) => `<span class="card-item" data-k="${i}" data-montant="${c.montant || 0}" tabindex="0" role="button">${c.libelle}</span>`).join("")}
             </div>
-            <button class="btn" style="margin-top:15px;" id="btn-ep-cartes">${ep.bouton || "Valider"}</button>
-            ${ep.fiche ? Fiches.bouton(ep.fiche) : ""}`);
-        const totaux = () => {
-            let a = 0, b = 0;
-            document.querySelectorAll("#col-a .card-item").forEach(c => a += Number(c.dataset.montant));
-            document.querySelectorAll("#col-b .card-item").forEach(c => b += Number(c.dataset.montant));
-            document.getElementById("total-a").innerText = a + " €";
-            document.getElementById("total-b").innerText = b + " €";
-            return { a, b };
-        };
-        // L'élève choisit la colonne : pioche -> A -> B -> pioche.
-        // (Avant, chaque carte partait d'elle-même dans la bonne colonne.)
-        const cycle = { "card-pool": "col-a", "col-a": "col-b", "col-b": "card-pool" };
+            <button class="btn" style="margin-top:15px;" id="btn-ep">${acte.bouton || "Valider"}</button>
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
+        const ordre = ["card-pool", ...cols.map(c => "col-" + c[0])];
+        const totaux = () => cols.forEach(([k]) => {
+            let t = 0;
+            document.querySelectorAll(`#col-${k} .card-item`).forEach(c => t += Number(c.dataset.montant));
+            document.getElementById("total-" + k).innerText = t + " €";
+        });
         document.querySelectorAll(".card-item").forEach(card => {
             const deplacer = () => {
-                document.getElementById(cycle[card.parentElement.id] || "col-a").appendChild(card);
+                card.classList.remove("erreur-surlignee");
+                const idx = ordre.indexOf(card.parentElement.id);
+                document.getElementById(ordre[(idx + 1) % ordre.length]).appendChild(card);
                 totaux();
             };
             card.addEventListener("click", deplacer);
@@ -407,125 +439,91 @@ const Levels = {
                 if (e.key === "Enter" || e.key === " ") { e.preventDefault(); deplacer(); }
             });
         });
-        document.getElementById("btn-ep-cartes").addEventListener("click", () => {
-            const places = Array.from(document.querySelectorAll(".bilan-col .card-item"));
-            const faux = places.filter(c => {
-                const col = c.parentElement.id === "col-a" ? "a" : "b";
-                return col !== ep.cartes[Number(c.dataset.i)].cible;
+        const b = document.getElementById("btn-ep");
+        b.addEventListener("click", () => {
+            const places = (acte.cartes || []).map((c, i) => {
+                const parent = document.querySelector(`.card-item[data-k="${i}"]`).parentElement.id;
+                return parent.startsWith("col-") ? parent.slice(4) : null;
             });
-            const t = totaux();
-            if (places.length < (ep.cartes || []).length) {
-                UI.feedbackKo(ep.msgIncomplete || "Place tous les éléments !");
-            } else if (faux.length > 0) {
-                UI.feedbackKo(ep.msgFaux || "Au moins un élément est mal placé. Relis les définitions !");
-            } else {
-                if (ep.historique) this.game.historique[ep.historique] = true;
-                UI.feedbackOk((ep.feedbackOk || "")
-                    .replace(/\{a\}/g, t.a).replace(/\{b\}/g, t.b));
-                onDone();
-            }
+            soumettre(places, b);
         });
     },
 
-    _moteurSequence(ep, onDone) {
-        let etape = 0;
-        const avancer = () => {
-            const a = (ep.actes || [])[etape];
-            if (!a) { onDone(); return; }
-            const suite = () => { etape++; avancer(); };
-            if (a.type === "slider" || a.type === "choix" || a.type === "cartes") {
-                this._renderEpreuve(a, suite);
-                return;
-            }
-            UI.setDialog(a.dialogueIcone, a.dialogueNom, a.dialogueTexte);
-            UI.setContent(`
-                ${a.contenu || ""}
-                <button class="btn" id="btn-ep-seq">${a.bouton || "Continuer"} <i class="fa-solid fa-arrow-right"></i></button>
-                ${a.fiche ? Fiches.bouton(a.fiche) : ""}`);
-            document.getElementById("btn-ep-seq").addEventListener("click", () => {
-                if (a.revealEffet) { try { Function("j", a.revealEffet)(this.game.joueur); } catch (e) { } }
-                if (a.feedbackOk) UI.feedbackOk(a.feedbackOk);
-                this._appliquerImpact(a.impact);
-                if (a.historique) this.game.historique[a.historique] = true;
-                suite();
-            });
+    _moteurSaisie(acte, soumettre) {
+        UI.setContent(`
+            ${acte.contenu || ""}
+            <div class="saisie-grille">
+                ${(acte.champs || []).map((c, i) => `
+                <label class="saisie-champ" data-k="${i}">
+                    <span>${c.libelle}</span>
+                    <span class="saisie-input"><input type="text" inputmode="decimal" autocomplete="off" id="champ-${i}" placeholder="?"> ${c.unite || ""}</span>
+                </label>`).join("")}
+            </div>
+            <button class="btn" id="btn-ep">${acte.bouton || "Valider"}</button>
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
+        const b = document.getElementById("btn-ep");
+        const envoyer = () => {
+            const valeurs = (acte.champs || []).map((c, i) => document.getElementById("champ-" + i).value.trim());
+            if (valeurs.some(v => v === "")) { UI.setFeedback(`<span class="ko">Remplis toutes les cases.</span>`); return; }
+            soumettre(valeurs, b);
         };
-        avancer();
+        b.addEventListener("click", envoyer);
+        document.querySelectorAll(".saisie-input input").forEach(inp => inp.addEventListener("keydown", e => {
+            if (e.key === "Enter") envoyer();
+        }));
+        const premier = document.getElementById("champ-0");
+        if (premier) premier.focus();
     },
 
-    defs: {
-        1: function () {
-            this.prologue();
-        },
+    _moteurJauges(acte, soumettre) {
+        const evts = acte.evenements || [];
+        const choix = evts.map(() => [null, null]);
+        const bouton = (i, axe, val, ico) => `<button class="jauge-btn" data-i="${i}" data-axe="${axe}" data-val="${val}" title="${val > 0 ? "monte" : val < 0 ? "baisse" : "ne change pas"}">${ico}</button>`;
+        const boutons = (i, axe) => bouton(i, axe, -1, "−") + bouton(i, axe, 0, "0") + bouton(i, axe, 1, "+");
+        UI.setContent(`
+            ${acte.contenu || ""}
+            <div class="jauges-totaux">
+                <div class="jauge-total"><span><i class="fa-solid fa-chart-line"></i> Résultat</span><b id="jt-0">0 €</b></div>
+                <div class="jauge-total"><span><i class="fa-solid fa-coins"></i> Caisse</span><b id="jt-1">0 €</b></div>
+            </div>
+            <div class="jauges-liste">
+                ${evts.map((e, i) => `
+                <div class="jauge-ligne" data-k="${i}">
+                    <div class="jauge-libelle">${e.libelle}${e.montant ? ` <span class="jauge-montant">${e.montant} €</span>` : ""}</div>
+                    <div class="jauge-choix"><span>Résultat</span>${boutons(i, 0)}</div>
+                    <div class="jauge-choix"><span>Caisse</span>${boutons(i, 1)}</div>
+                </div>`).join("")}
+            </div>
+            <button class="btn" id="btn-ep">${acte.bouton || "Valider"}</button>
+            ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
+        const recalculer = () => [0, 1].forEach(axe => {
+            const t = evts.reduce((s, e, i) => s + (choix[i][axe] || 0) * (Number(e.montant) || 0), 0);
+            const el = document.getElementById("jt-" + axe);
+            el.innerText = (t > 0 ? "+" : "") + t + " €";
+            el.className = t < 0 ? "ko" : (t > 0 ? "ok" : "");
+        });
+        document.querySelectorAll(".jauge-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const i = Number(btn.dataset.i), axe = Number(btn.dataset.axe);
+                choix[i][axe] = Number(btn.dataset.val);
+                btn.parentElement.querySelectorAll(".jauge-btn").forEach(x => x.classList.toggle("actif", x === btn));
+                btn.closest(".jauge-ligne").classList.remove("erreur-surlignee");
+                recalculer();
+            });
+        });
+        const b = document.getElementById("btn-ep");
+        b.addEventListener("click", () => {
+            if (choix.some(c => c[0] === null || c[1] === null)) {
+                UI.setFeedback(`<span class="ko">Indique les deux effets (résultat et caisse) pour chaque événement.</span>`);
+                return;
+            }
+            soumettre(choix, b);
+        });
+    },
 
-        2: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(2);
-            this.jouerEpreuve(2);
-        },
-
-        3: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(3);
-            this.jouerEpreuve(3);
-        },
-
-        4: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(4);
-            this.jouerEpreuve(4);
-        },
-
-        5: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(5);
-            this.jouerEpreuve(5);
-        },
-
-        6: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(6);
-            this.jouerEpreuve(6);
-        },
-
-        7: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(7);
-            this.jouerEpreuve(7);
-        },
-
-        8: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(8);
-            this.jouerEpreuve(8);
-        },
-
-        9: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(9);
-            this.jouerEpreuve(9);
-        },
-
-        10: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(10);
-            this.jouerEpreuve(10);
-        },
-
-        11: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(11);
-            this.jouerEpreuve(11);
-        },
-
-        12: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(12);
-            this.jouerEpreuve(12);
-        },
-
-        13: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(13);
-            this.jouerEpreuve(13);
-        },
-
-        14: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(14);
-            this.jouerEpreuve(14);
-        },
-
-        15: function (epreuve) {
-            if (!epreuve) return this.ficheChapitre(15);
-            this.jouerEpreuve(15);
-        }
-    }
+    defs: {}
 };
+
+// Chapitre 1 : prologue puis épreuve ; les autres : fiche de chapitre puis épreuve.
+Levels.defs[1] = function () { this.prologue(); };
+for (let n = 2; n <= 15; n++) Levels.defs[n] = function () { this.ficheChapitre(n); };

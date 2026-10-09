@@ -803,3 +803,83 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 }
 
 .prof-etudiant-row:hover { background: #eef2f5; }
+
+/* ====== Moteur d'épreuves (itération 17) ====== */
+.erreur-surlignee { outline: 3px solid var(--primary) !important; outline-offset: 2px; animation: secousse 0.4s; }
+@keyframes secousse { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+.autopsie {
+    margin-top: 10px; padding: 12px 14px; background: #fff4f4; border-left: 4px solid var(--primary);
+    border-radius: 8px; text-align: left; color: var(--text); font-weight: 400; line-height: 1.5;
+}
+.autopsie b { color: var(--primary); display: block; margin-bottom: 4px; }
+.indice {
+    margin-top: 8px; padding: 10px 14px; background: #fff8e6; border-left: 4px solid #e9c46a;
+    border-radius: 8px; text-align: left; color: var(--text); font-weight: 400;
+}
+.indice i { color: #d4a017; margin-right: 6px; }
+.btn-suite { display: block; margin: 12px auto 0; }
+
+.choix-liste { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 620px; margin-top: 10px; }
+.choix-option { text-align: left; background: var(--secondary); }
+.choix-option:hover { background: #152a45; }
+.choix-option i { margin-right: 8px; color: #f4a261; }
+
+.bilan-grid.trois .bilan-col { min-width: 0; }
+
+.saisie-grille { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 560px; margin: 12px 0; }
+.saisie-champ {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    background: white; padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; text-align: left;
+}
+.saisie-input { white-space: nowrap; font-weight: 600; }
+.saisie-input input { width: 110px; padding: 8px 10px; font-size: 1em; border: 2px solid #ccc; border-radius: 8px; text-align: right; }
+.saisie-input input:focus { border-color: var(--secondary); outline: none; }
+
+.jauges-totaux { display: flex; gap: 12px; width: 100%; max-width: 640px; margin: 10px 0; position: sticky; top: -30px; z-index: 2; padding: 8px 0; background: var(--bg); box-shadow: 0 6px 8px -6px rgba(0,0,0,0.15); }
+.jauge-total {
+    flex: 1; background: var(--secondary); color: white; border-radius: 10px; padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center; font-size: 1.05em;
+}
+.jauge-total b.ok { color: #8fe3c6; }
+.jauge-total b.ko { color: #ffb3b8; }
+.jauges-liste { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 640px; }
+.jauge-ligne {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+    background: white; border-radius: 10px; padding: 10px 12px; border: 1px solid #e3e3e3; text-align: left;
+}
+.jauge-montant { color: #666; font-weight: 600; white-space: nowrap; }
+.jauge-choix { display: flex; align-items: center; gap: 4px; font-size: 0.8em; color: #666; }
+.jauge-choix span { margin-right: 4px; }
+.jauge-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 2px solid #ccc; background: white;
+    font-weight: 800; font-size: 1.05em; cursor: pointer; color: var(--secondary);
+}
+.jauge-btn:hover { border-color: var(--secondary); }
+.jauge-btn.actif { background: var(--secondary); border-color: var(--secondary); color: white; }
+
+.frise { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+.frise-point { background: white; border-radius: 10px; padding: 10px 14px; border: 1px solid #ddd; min-width: 170px; }
+.frise-fleche { color: #666; font-weight: 600; }
+.tl-montant.sortie { color: var(--primary); }
+.tl-montant.entree { color: var(--success); }
+.jauge-caisse { position: relative; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 6px auto; max-width: 420px; }
+.jauge-barre { height: 100%; transition: width 0.3s; }
+.jauge-barre.negatif { background: var(--primary); }
+.jauge-barre.positif { background: var(--success); }
+
+.tirelires { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; color: #555; font-size: 0.9em; }
+.tirelires div { background: white; border: 1px dashed #bbb; border-radius: 10px; padding: 6px 10px; }
+.tirelires i { color: #e9c46a; margin-right: 4px; }
+.congelateur { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.bac { background: #eaf4fb; border: 2px solid #9cc7e4; border-radius: 10px; padding: 10px 16px; }
+.bac i { color: #4a90c2; }
+.confiance { background: #f3f0ff; border-left: 4px solid #6c5ce7; border-radius: 8px; padding: 8px 12px; text-align: left; width: 100%; max-width: 620px; }
+.confiance i { color: #6c5ce7; margin-right: 6px; }
+.cheque-dechire { display: flex; gap: 14px; align-items: center; text-align: left; }
+.cheque-dechire > i { font-size: 2.4em; color: var(--success); }
+
+@media (max-width: 640px) {
+    .jauge-ligne { grid-template-columns: 1fr; }
+    .saisie-champ { flex-direction: column; align-items: stretch; }
+}

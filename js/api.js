@@ -75,6 +75,12 @@ const Api = {
         return data.fiche;
     },
 
+    async repondre(niveau, acte, reponse) {
+        const data = await this._post({ action: "repondre", email: this._getEmail(), token: this._getToken(), niveau, acte, reponse });
+        if (data.error) throw new Error(data.error);
+        return data;
+    },
+
     async studentDetail(emailEleve) {
         const data = await this._post({
             action: "student_detail",
