@@ -168,6 +168,12 @@ const Game = {
         } catch (e) { console.error(e); }
         Levels.init(this);
         Carnet.init();
+        document.getElementById("btn-deconnexion").addEventListener("click", async () => {
+            if (!confirm("Se déconnecter ? Ta progression est enregistrée.")) return;
+            await this.save();
+            await Api.logout();
+            location.reload();
+        });
         this.updateStats();
         Levels.load(this.joueur.niveau);
     },

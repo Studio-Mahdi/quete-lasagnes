@@ -21,7 +21,14 @@ const Api = {
     async resume(email, token) {
         const data = await this._post({ action: "resume", email, token });
         if (data.error) throw new Error(data.error);
+        // ancien jeton converti par le serveur en jeton signé
+        if (data.token && data.token !== token) this._storeSession(data);
         return data;
+    },
+
+    async logout() {
+        try { await this._post({ action: "logout", email: this._getEmail(), token: this._getToken() }); }
+        finally { this.clearSession(); }
     },
 
     async track(type, niveau, donnees) {
@@ -37,7 +44,7 @@ const Api = {
     },
 
     async classement() {
-        const data = await this._post({ action: "leaderboard" });
+        const data = await this._post({ action: "leaderboard", email: this._getEmail(), token: this._getToken() });
         if (data.error) throw new Error(data.error);
         return data.classement;
     },
