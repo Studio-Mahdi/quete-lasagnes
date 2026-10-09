@@ -141,6 +141,9 @@ const Carnet = {
 
     init() {
         document.getElementById("btn-carnet").addEventListener("click", () => this.ouvrir("parents"));
+        // la trésorerie de la barre du haut ouvre directement le livre de caisse
+        const caisse = document.getElementById("btn-caisse");
+        if (caisse) caisse.addEventListener("click", () => this.ouvrir("caisse"));
         document.querySelectorAll(".carnet-onglet").forEach(b => b.addEventListener("click", () => this.ouvrir(b.dataset.onglet)));
         document.getElementById("btn-carnet-close").addEventListener("click", () => {
             document.getElementById("carnet-overlay").style.display = "none";
