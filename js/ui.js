@@ -1,0 +1,368 @@
+const UI = {
+    joueur: null,
+
+    $(id) { return document.getElementById(id); },
+
+    showScreen(name) {
+        const screens = ["login-screen", "register-screen", "code-screen", "game-screen"];
+        screens.forEach(id => { this.$(id).style.display = "none"; });
+        const map = { login: "login-screen", register: "register-screen", code: "code-screen", game: "game-screen" };
+        this.$(map[name]).style.display = "flex";
+    },
+
+    setLoginStatus(text) {
+        this.$("login-error").innerText = text || "";
+    },
+
+    setLoginBusy(busy) {
+        this.$("btn-login").disabled = busy;
+        if (busy) this.setLoginStatus("Envoi du code en cours...");
+    },
+
+    setCodeStatus(text) {
+        this.$("code-error").innerText = text || "";
+    },
+
+    setCodeBusy(busy) {
+        this.$("btn-verify").disabled = busy;
+        if (busy) this.setCodeStatus("");
+    },
+
+    updateStats(joueur) {
+        this._animerNombre("val-pv", joueur.pv);
+        this._animerNombre("val-treso", joueur.tresorerie, " €");
+        this._animerNombre("val-stock", joueur.stock);
+        this.$("val-nom").innerText = joueur.prenom;
+        this.$("val-rang").innerText = Story.rangPour(joueur.niveau);
+        this.$("val-chapitre").innerText = `${joueur.niveau}/15`;
+
+        const pct = Math.min(joueur.niveau - 1, 15) / 15 * 100;
+        this.$("progress-fill").style.width = pct + "%";
+        this.$("progress-label").innerText = `${joueur.niveau - 1} épreuve${joueur.niveau - 1 > 1 ? "s" : ""} sur 14`;
+    },
+
+    _animerNombre(id, cible, suffixe) {
+        const el = this.$(id);
+        const depart = parseInt(el.innerText.replace(/[^\d-]/g, "")) || 0;
+        if (depart === cible) { el.innerText = cible + (suffixe || ""); return; }
+        const duree = 700;
+        const debut = performance.now();
+        const pas = (t) => {
+            const p = Math.min((t - debut) / duree, 1);
+            const ease = 1 - Math.pow(1 - p, 3);
+            el.innerText = Math.round(depart + (cible - depart) * ease) + (suffixe || "");
+            if (p < 1) requestAnimationFrame(pas);
+        };
+        requestAnimationFrame(pas);
+    },
+
+    certificat(joueur) {
+        const gagne = Trophees.obtenir().length;
+        const zone = document.createElement("div");
+        zone.id = "certificat-overlay";
+        zone.style.cssText = "position:fixed;inset:0;background:rgba(29,53,87,0.85);z-index:150;display:flex;justify-content:center;align-items:center;padding:20px;";
+        zone.innerHTML = `
+            <div id="certificat" style="background:#fffdf5;border:12px double #d4a017;border-radius:8px;padding:40px;max-width:560px;width:100%;text-align:center;font-family:'Georgia',serif;">
+                <div style="font-size:2.6em;">🍝</div>
+                <h2 style="color:#1d3557;margin:10px 0 4px;">La Quête des Lasagnes</h2>
+                <p style="font-style:italic;color:#666;margin:0 0 18px;">Certificat de Maîtresse de Gestion Financière</p>
+                <p>Ce certifie que</p>
+                <p style="font-size:1.5em;font-weight:bold;color:#e63946;margin:6px 0;">${joueur.prenom} ${joueur.nom || ""}</p>
+                <p>a relevé les 15 épreuves de la trattoria :</p>
+                <p style="font-size:0.9em;color:#444;line-height:1.7;">Capital · Charges fixes · Seuil de rentabilité · BFR · Amortissement · Bilan · TVA · Compte de résultat · Marge · Stocks · Provisions · Emprunt · Trésorerie · EBE · Analyse finale</p>
+                <p>Trophées obtenus : <b>${gagne}/9</b> — Réputation : <b>${joueur.pv} PV</b></p>
+                <p style="margin-top:18px;">« Tu as fait de l'argent <i>avec</i> ta passion, pas <i>contre</i> elle. »<br><span style="color:#666;">— Chef Luigi</span></p>
+                <div style="margin-top:25px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                    <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
+                    <button class="btn choice" id="btn-certificat-close">Fermer</button>
+                </div>
+            </div>`;
+        document.body.appendChild(zone);
+        document.getElementById("btn-certificat-close").addEventListener("click", () => zone.remove());
+    },
+
+    majTrophees() {
+        const nb = Trophees.obtenir().length;
+        const el = this.$("nb-trophees");
+        if (el) el.innerText = nb;
+        return nb;
+    },
+
+    trophees() {
+        const obtenus = Trophees.obtenir();
+        let html = "";
+        for (const t of Trophees.liste) {
+            const ok = obtenus.includes(t.id);
+            html += `<div class="trophee-item ${ok ? "obtenu" : "verrouille"}">
+                <i class="${ok ? t.icone : "fa-solid fa-lock"}"></i>
+                <div><b>${ok ? t.titre : "???"}</b><div>${ok ? t.desc : t.desc.replace(/[^.!?]/g, "•")}</div></div>
+            </div>`;
+        }
+        this.$("trophees-list").innerHTML = html;
+        this.$("trophees-overlay").style.display = "flex";
+    },
+
+    vueProf(data) {
+        const { etudiants, statsParNiveau, resumePromos } = data;
+        const fmtDuree = (ms) => {
+            if (!ms) return "—";
+            const min = Math.round(ms / 60000);
+            return min < 1 ? "<1 min" : min + " min";
+        };
+        let rowsEtudiants = etudiants.map((e, i) => `
+            <tr class="prof-etudiant-row" data-email="${e.email || ""}" style="cursor:pointer;" title="Voir le détail">
+                <td>${i + 1}</td>
+                <td><b>${e.prenom} ${e.nom}</b> ${e.trophees && e.trophees.length ? `<span title="${e.trophees.length} trophée(s)">🏆 ${e.trophees.length}/9</span>` : ""}</td>
+                <td>${e.promo || "—"}</td>
+                <td>Chap. ${e.niveau}/15</td>
+                <td>${e.pv} PV</td>
+                <td>${e.treso} €</td>
+                <td><i class="fa-solid fa-chevron-right"></i></td>
+            </tr>`).join("");
+
+        // Résumé par promo
+        let resumeHtml = "";
+        if (resumePromos && Object.keys(resumePromos).length > 0) {
+            resumeHtml = `<h3 style="color:var(--secondary);margin-top:20px;">Par promo</h3>
+            <table class="amort-table" id="prof-promos">
+                <tr><th>Promo</th><th>Effectif</th><th>Niveau moyen</th><th>Meilleur niveau</th></tr>
+                ${Object.entries(resumePromos).map(([p, r]) => `
+                <tr>
+                    <td><b>${p}</b></td>
+                    <td>${r.effectif}</td>
+                    <td>${r.niveauMoyen}</td>
+                    <td>${r.niveauMax}</td>
+                </tr>`).join("")}
+            </table>`;
+        }
+
+        let rowsStats = "";
+        for (let n = 1; n <= 15; n++) {
+            const st = statsParNiveau[n];
+            if (!st) continue;
+            const alerte = st.tauxEchec >= 50 ? "ko" : (st.tauxEchec >= 25 ? "moyen" : "ok");
+            rowsStats += `
+            <tr>
+                <td>Chap. ${n}</td>
+                <td>${Story.etapes[n] ? Story.etapes[n].titre : ""}</td>
+                <td>${st.victoires}</td>
+                <td class="${alerte}">${st.tauxEchec} %</td>
+                <td>${fmtDuree(st.dureeMedianeMs)}</td>
+            </tr>`;
+        }
+        if (!rowsStats) rowsStats = "<tr><td colspan='5'>Pas encore de données. Elles apparaissent dès que les étudiants jouent.</td></tr>";
+
+        let zone = document.getElementById("prof-overlay");
+        if (!zone) {
+            zone = document.createElement("div");
+            zone.id = "prof-overlay";
+            zone.style.cssText = "position:fixed;inset:0;background:rgba(29,53,87,0.85);z-index:140;display:flex;justify-content:center;align-items:flex-start;padding:30px 15px;overflow-y:auto;";
+            zone.innerHTML = `
+                <div class="grimoire-panel" style="max-width:820px;">
+                    <div class="grimoire-header">
+                        <h2><i class="fa-solid fa-chalkboard-user"></i> Ma Classe — Vue Professeur</h2>
+                        <button class="btn" id="btn-prof-close"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <p class="subtitle">Progression des étudiants et difficulté des chapitres (taux d'échec = signaux pédagogiques).</p>
+                    ${resumeHtml}
+                    <h3 style="color:var(--secondary);margin-top:20px;">Étudiants (${etudiants.length})</h3>
+                    <table class="amort-table" id="prof-etudiants">
+                        <tr><th>#</th><th>Étudiant</th><th>Promo</th><th>Progression</th><th>Réputation</th><th>Trésorerie</th></tr>
+                        ${rowsEtudiants}
+                    </table>
+                    <h3 style="color:var(--secondary);margin-top:20px;">Analyse par chapitre</h3>
+                    <table class="amort-table" id="prof-stats">
+                        <tr><th>Chapitre</th><th>Notion</th><th>Victoires</th><th>Taux d'échec</th><th>Temps médian</th></tr>
+                        ${rowsStats}
+                    </table>
+                </div>`;
+            document.body.appendChild(zone);
+            document.getElementById("btn-prof-close").addEventListener("click", () => zone.remove());
+            zone.addEventListener("click", (e) => { if (e.target === zone) zone.remove(); });
+            zone.querySelectorAll(".prof-etudiant-row").forEach(row => {
+                row.addEventListener("click", async () => {
+                    const email = row.dataset.email;
+                    if (!email) return;
+                    try {
+                        const detail = await Api.studentDetail(email);
+                        UI.ficheEleve(detail);
+                    } catch (err) { console.error(err); }
+                });
+            });
+        }
+        zone.style.display = "flex";
+    },
+
+    ficheEleve(d) {
+        const fmtDuree = (ms) => {
+            if (!ms) return "—";
+            const min = Math.round(ms / 60000);
+            return min < 1 ? "<1 min" : min + " min";
+        };
+        let rows = "";
+        for (let n = 1; n <= 15; n++) {
+            const c = d.chapitres[n];
+            const et = Story.etapes[n];
+            rows += `
+            <tr>
+                <td>Chap. ${n}</td>
+                <td>${et ? et.titre : ""}</td>
+                <td>${c ? (c.victoires > 0 ? '<i class="fa-solid fa-check ok"></i>' : '<i class="fa-solid fa-hourglass-half" style="color:#999;"></i>') : "—"}</td>
+                <td>${c ? c.echecs : "—"}</td>
+                <td>${c ? c.gameOvers : "—"}</td>
+                <td>${c ? fmtDuree(c.dureeMedianeMs) : "—"}</td>
+            </tr>`;
+        }
+        const tropheesHtml = (d.trophees && d.trophees.length)
+            ? d.trophees.map(t => {
+                const tr = Trophees.liste.find(x => x.id === t);
+                return tr ? `<span class="trophee-mini">${tr.titre}</span>` : "";
+              }).join("")
+            : "<em>Aucun trophée pour le moment</em>";
+
+        let zone = document.createElement("div");
+        zone.id = "eleve-overlay";
+        zone.style.cssText = "position:fixed;inset:0;background:rgba(29,53,87,0.85);z-index:145;display:flex;justify-content:center;align-items:flex-start;padding:30px 15px;overflow-y:auto;";
+        zone.innerHTML = `
+            <div class="grimoire-panel" style="max-width:760px;">
+                <div class="grimoire-header">
+                    <h2><i class="fa-solid fa-user-graduate"></i> ${d.prenom} ${d.nom}</h2>
+                    <button class="btn" id="btn-eleve-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <p class="subtitle">${d.promo ? "Promo " + d.promo + " · " : ""}Chapitre ${d.niveau}/15 · ${d.pv} PV · ${d.treso} €</p>
+                <h3 style="color:var(--secondary);">Trophées (${(d.trophees || []).length}/9)</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">${tropheesHtml}</div>
+                <h3 style="color:var(--secondary);margin-top:20px;">Parcours chapitre par chapitre</h3>
+                <table class="amort-table">
+                    <tr><th>Chap.</th><th>Notion</th><th>Terminé</th><th>Échecs</th><th>Game overs</th><th>Temps médian</th></tr>
+                    ${rows}
+                </table>
+            </div>`;
+        document.body.appendChild(zone);
+        document.getElementById("btn-eleve-close").addEventListener("click", () => zone.remove());
+        zone.addEventListener("click", (e) => { if (e.target === zone) zone.remove(); });
+    },
+
+    classement(liste, prenomSelf) {
+        if (!liste || !liste.length) {
+            this.$("classement-list").innerHTML = "<div class='error-msg'>Aucun joueur pour le moment.</div>";
+        } else {
+            this.$("classement-list").innerHTML = liste.map((j, i) => `
+                <div class="classement-item ${j.prenom === prenomSelf ? "self" : ""}">
+                    <span class="classement-rang">${i + 1}</span>
+                    <b>${j.prenom} ${j.nom}</b>
+                    <span class="classement-chapitre"><i class="fa-solid fa-map"></i> Chap. ${j.niveau}/15</span>
+                    <span class="classement-pv"><i class="fa-solid fa-heart"></i> ${j.pv}</span>
+                </div>`).join("");
+        }
+        this.$("classement-overlay").style.display = "flex";
+    },
+
+    confettis() {
+        const zone = document.createElement("div");
+        zone.className = "confetti-zone";
+        document.body.appendChild(zone);
+        const couleurs = ["#e63946", "#f4a261", "#2a9d8f", "#e9c46a", "#1d3557"];
+        for (let i = 0; i < 40; i++) {
+            const c = document.createElement("i");
+            c.className = "fa-solid fa-star confetti";
+            c.style.left = (Math.random() * 100) + "%";
+            c.style.color = couleurs[i % couleurs.length];
+            c.style.fontSize = (10 + Math.random() * 14) + "px";
+            c.style.animationDelay = (Math.random() * 0.4) + "s";
+            c.style.animationDuration = (1.6 + Math.random() * 1.2) + "s";
+            zone.appendChild(c);
+        }
+        setTimeout(() => zone.remove(), 3200);
+    },
+
+    setDialog(iconClass, name, text) {
+        this.$("speaker-icon").innerHTML = `<i class="${iconClass}"></i>`;
+        this.$("speaker-name").innerText = name;
+        this.$("dialog-text").innerHTML = text;
+    },
+
+    setContent(html) {
+        this.$("quest-content").innerHTML = html;
+    },
+
+    setFeedback(html) {
+        this.$("feedback-msg").innerHTML = html;
+    },
+
+    feedbackOk(text) {
+        this.setFeedback(`<span class="ok">${text}</span>`);
+        Sons.succes();
+    },
+
+    feedbackKo(text) {
+        this.setFeedback(`<span class="ko">${text}</span>`);
+        Sons.erreur();
+        if (this._onKo && typeof this._onKo === "function") this._onKo();
+    },
+
+    setOnKo(fn) {
+        this._onKo = fn;
+    },
+
+    setSaveStatus(state) {
+        const el = this.$("save-status");
+        el.classList.remove("error");
+        if (state === "pending") {
+            el.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
+        } else if (state === "saved") {
+            el.innerHTML = "<i class='fa-solid fa-check'></i>";
+            setTimeout(() => { el.innerHTML = ""; }, 1500);
+        } else if (state === "error") {
+            el.classList.add("error");
+            el.innerHTML = "<i class='fa-solid fa-triangle-exclamation'></i>";
+            setTimeout(() => { el.innerHTML = ""; }, 2500);
+        } else {
+            el.innerHTML = "";
+        }
+    },
+
+    casting() {
+        const list = this.$("casting-list");
+        let html = "";
+        for (const [id, p] of Object.entries(Story.personnages)) {
+            const classe = p.role.includes("Ennemi") ? "ennemi" : (p.role.includes("Boss") ? "boss" : "allie");
+            html += `<div class="casting-item ${classe}">
+                <i class="${p.icone}"></i>
+                <div>
+                    <b>${p.nom}</b> <span class="casting-role">${p.role}</span>
+                    <div class="casting-desc">${p.desc}</div>
+                </div>
+            </div>`;
+        }
+        list.innerHTML = html;
+        this.$("casting-overlay").style.display = "flex";
+    },
+
+    grimoire(niveau) {
+        const list = this.$("grimoire-list");
+        let html = "";
+        for (let i = 1; i <= 15; i++) {
+            const et = Story.etapes[i];
+            if (!et) {
+                html += `<div class="grimoire-item locked"><i class="fa-solid fa-lock"></i><div><b>???</b><div>Chapitre ${i} en préparation</div></div></div>`;
+                continue;
+            }
+            if (i < niveau && et && et.competence) {
+                html += `<div class="grimoire-item acquired">
+                    <i class="${et.competence.icone}"></i>
+                    <div><b>${et.competence.nom}</b><div>${et.competence.desc}</div></div>
+                </div>`;
+            } else if (i < niveau) {
+                html += `<div class="grimoire-item locked"><i class="fa-solid fa-lock"></i><div><b>Chapitre ${i} maîtrisé</b><div>Compétence acquise</div></div></div>`;
+            } else {
+                html += `<div class="grimoire-item locked">
+                    <i class="fa-solid fa-lock"></i>
+                    <div><b>???</b><div>Compétence à débloquer au chapitre ${i}</div></div>
+                </div>`;
+            }
+        }
+        list.innerHTML = html;
+        this.$("grimoire-overlay").style.display = "flex";
+    }
+};

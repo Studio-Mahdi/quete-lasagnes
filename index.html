@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Quête des Lasagnes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <!-- ECRAN 1 : CONNEXION EMAIL -->
+    <div id="login-screen" class="auth-screen">
+        <i class="fa-solid fa-utensils main-icon"></i>
+        <h1>La Quête des Lasagnes</h1>
+        <p class="subtitle">Formation interactive à la gestion financière</p>
+        <div class="input-group">
+            <input type="email" id="email-input" placeholder="Votre adresse email étudiant">
+        </div>
+        <div class="input-group">
+            <input type="text" id="promo-login-input" placeholder="Code de votre promo (donné par votre enseignant)" autocomplete="off">
+        </div>
+        <button class="btn" id="btn-login">Continuer <i class="fa-solid fa-arrow-right"></i></button>
+        <div id="login-error" class="error-msg"></div>
+    </div>
+
+    <!-- ECRAN 2 : INSCRIPTION -->
+    <div id="register-screen" class="auth-screen" style="display:none;">
+        <i class="fa-solid fa-user-plus main-icon"></i>
+        <h2>Nouveau Chef !</h2>
+        <p class="subtitle">Entrez vos coordonnées pour enregistrer vos réussites :</p>
+        <div class="input-group"><input type="text" id="prenom-input" placeholder="Prénom"></div>
+        <div class="input-group"><input type="text" id="nom-input" placeholder="Nom"></div>
+        <div class="input-group"><input type="text" id="promo-input" placeholder="Code de votre promo (ex : LICENCE3-2025)" autocomplete="off"></div>
+        <button class="btn" id="btn-register">Recevoir mon code</button>
+    </div>
+
+    <!-- ECRAN 2b : CODE DE VERIFICATION -->
+    <div id="code-screen" class="auth-screen" style="display:none;">
+        <i class="fa-solid fa-envelope-open-text main-icon"></i>
+        <h2>Checkez vos emails !</h2>
+        <p class="subtitle">Un code à 6 chiffres vous a été envoyé. Il est valable 10 minutes.</p>
+        <div class="input-group"><input type="text" id="code-input" placeholder="Code à 6 chiffres" inputmode="numeric" maxlength="6"></div>
+        <button class="btn" id="btn-verify">Valider</button>
+        <button class="btn btn-link" id="btn-resend">Renvoyer un code</button>
+        <div id="code-error" class="error-msg"></div>
+    </div>
+
+    <!-- ECRAN 3 : JEU -->
+    <div id="game-screen">
+        <div id="stats-bar">
+            <span class="stat-rang"><i class="fa-solid fa-user"></i> <span id="val-nom"></span> <span class="rang-badge" id="val-rang"></span></span>
+            <span><i class="fa-solid fa-heart stat-heart"></i> <span id="val-pv"></span> PV</span>
+            <span><i class="fa-solid fa-coins stat-coin"></i> <span id="val-treso"></span> €</span>
+            <span><i class="fa-solid fa-box"></i> <span id="val-stock"></span> Lasagnes</span>
+            <span><i class="fa-solid fa-map"></i> Chapitre <span id="val-chapitre"></span></span>
+            <span id="btn-grimoire" class="stat-action" title="Grimoire des compétences"><i class="fa-solid fa-book-bookmark"></i> Grimoire</span>
+            <span id="btn-fiches" class="stat-action" title="Fiches d'aide"><i class="fa-solid fa-circle-question"></i> Fiches</span>
+            <span id="btn-casting" class="stat-action" title="Casting de la quête"><i class="fa-solid fa-users"></i> Casting</span>
+            <span id="btn-trophees" class="stat-action" title="Trophées"><i class="fa-solid fa-award"></i> <span id="nb-trophees">0</span>/9</span>
+            <span id="btn-classement" class="stat-action" title="Classement de la classe"><i class="fa-solid fa-ranking-star"></i> Classement</span>
+            <span id="btn-son" class="stat-action" title="Activer/couper le son"><i class="fa-solid fa-volume-high"></i></span>
+        </div>
+
+        <div id="progress-wrap">
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <span id="progress-label"></span>
+        </div>
+
+        <div id="action-area">
+            <div id="quest-content"></div>
+            <div id="feedback-msg" class="feedback"></div>
+        </div>
+
+        <div id="dialog-area">
+            <div class="speaker-avatar" id="speaker-icon"></div>
+            <div class="dialog-body">
+                <span id="speaker-name"></span>
+                <div id="dialog-text"></div>
+            </div>
+            <div id="save-status"></div>
+        </div>
+    </div>
+</div>
+
+<div id="grimoire-overlay" style="display:none;">
+    <div class="grimoire-panel">
+        <div class="grimoire-header">
+            <h2><i class="fa-solid fa-book-bookmark"></i> Grimoire des Compétences</h2>
+            <button class="btn" id="btn-grimoire-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="subtitle" id="grimoire-intro">Les lois de la gestion que tu as maîtrisées. À consulter avant chaque épreuve !</p>
+        <div id="grimoire-list"></div>
+    </div>
+</div>
+
+<div id="trophees-overlay" style="display:none;">
+    <div class="grimoire-panel">
+        <div class="grimoire-header">
+            <h2><i class="fa-solid fa-award"></i> Trophées de Mia</h2>
+            <button class="btn" id="btn-trophees-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="subtitle">Les preuves de ta maîtrise. Certains se débloquent par le style de jeu !</p>
+        <div id="trophees-list"></div>
+    </div>
+</div>
+
+<div id="classement-overlay" style="display:none;">
+    <div class="grimoire-panel">
+        <div class="grimoire-header">
+            <h2><i class="fa-solid fa-ranking-star"></i> Classement de la Classe</h2>
+            <button class="btn" id="btn-classement-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="subtitle">Top 10 des étudiants de la trattoria.</p>
+        <div id="classement-list"><div class="error-msg">Chargement...</div></div>
+    </div>
+</div>
+
+<div id="casting-overlay" style="display:none;">
+    <div class="grimoire-panel">
+        <div class="grimoire-header">
+            <h2><i class="fa-solid fa-users"></i> Le Casting de la Quête</h2>
+            <button class="btn" id="btn-casting-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="subtitle">Les alliés, les ennemis et les boss de Mia.</p>
+        <div id="casting-list"></div>
+    </div>
+</div>
+
+<div id="fiche-overlay" style="display:none;">
+    <div class="grimoire-panel fiche-panel">
+        <div class="grimoire-header">
+            <h2 id="fiche-titre"></h2>
+            <button class="btn" id="btn-fiche-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="subtitle">La compta, expliquée avec des lasagnes 🍝</p>
+        <div id="fiche-corps"></div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/story.js"></script>
+<script src="js/fiches.js"></script>
+<script src="js/embuches.js"></script>
+<script src="js/bonus.js"></script>
+<script src="js/sons.js"></script>
+<script src="js/trophees.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

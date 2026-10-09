@@ -1,0 +1,10 @@
+# PUBLIC (GitHub Pages) : index.html + css/ + js/ + README uniquement.
+# Le back-end, les tests, la CI et les docs vivent dans le repo privé.
+*
+!.gitignore
+!README.md
+!index.html
+!css/
+!css/**
+!js/
+!js/**
