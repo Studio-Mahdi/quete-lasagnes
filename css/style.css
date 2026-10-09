@@ -1027,3 +1027,20 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 .echeances { margin-top: 10px; padding: 8px 12px; border-left: 4px solid var(--secondary); background: #eef3f8; border-radius: 6px; text-align: left; font-size: 0.95em; }
 .echeances b.ok { color: var(--success); }
 .echeances b.ko { color: var(--primary); }
+
+/* Carnet — « La caisse » : journal de la trattoria, caisse ET résultat */
+.journal { width: 100%; border-collapse: collapse; font-size: 0.92em; text-align: left; }
+.journal th { background: var(--secondary); color: white; padding: 6px 8px; font-weight: 600; }
+.journal th:not(:first-child), .journal td:not(:first-child) { text-align: right; white-space: nowrap; width: 1%; }
+.journal td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+.journal td.ok { color: var(--success); font-weight: 600; }
+.journal td.ko { color: var(--primary); font-weight: 600; }
+.journal td.nul { color: #999; }
+.journal-chapitre td { background: #f4efe6; font-weight: 700; color: var(--secondary); padding-top: 8px; }
+.journal-total td { font-weight: 700; border-bottom: 2px solid #ddd; }
+.journal-cumul { font-weight: 400; color: #666; font-size: 0.9em; }
+.journal tfoot td { font-weight: 700; background: #f7f7f7; }
+.journal-final td { background: #eef3f8 !important; font-size: 1.05em; }
+.journal-avenir { margin-top: 12px; padding: 10px 12px; border-left: 4px solid #d4a017; background: #fff8e6; border-radius: 6px; text-align: left; }
+.journal-avenir b.ok { color: var(--success); } .journal-avenir b.ko { color: var(--primary); }
+@media (max-width: 640px) { .journal { font-size: 0.82em; } .journal td, .journal th { padding: 4px 5px; } }

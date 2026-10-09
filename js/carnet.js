@@ -2,6 +2,8 @@
 // - « Les pages des parents » : un souvenir (objet de la vitrine + page du carnet
 //   des parents + récompense) par chapitre réussi — servi par l'API.
 // - « Mes erreurs » : chaque autopsie reçue, gardée pour réviser avant le boss.
+// - « La caisse » : le journal de la trattoria, chapitre par chapitre — chaque opération
+//   avec son effet sur la CAISSE et sur le RÉSULTAT, et les flux à venir (servi par l'API).
 const Carnet = {
     CLE_ERREURS: "ql_carnet_erreurs",
     souvenirs: [],
@@ -47,10 +49,64 @@ const Carnet = {
         zone.querySelectorAll(".vitrine-objet[data-n]").forEach(el => el.addEventListener("click", () => this.ouvrir("parents")));
     },
 
+    _euros(x, signe) {
+        const v = Math.round(Number(x) * 100) / 100;
+        const t = v.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " €";
+        return signe && v > 0 ? "+" + t : t;
+    },
+
+    _cellule(x) {
+        if (!x) return `<td class="nul">—</td>`;
+        return `<td class="${x < 0 ? "ko" : "ok"}">${this._euros(x, true)}</td>`;
+    },
+
+    async _caisse(corps) {
+        corps.innerHTML = `<p class="chargement"><i class="fa-solid fa-spinner fa-spin"></i> Ouverture du livre de caisse…</p>`;
+        let donnees;
+        try { donnees = (await Api.chargerMeta()).caisse; } catch (e) { console.error(e); }
+        if (document.querySelector(".carnet-onglet.actif")?.dataset.onglet !== "caisse") return; // onglet changé entre-temps
+        if (!donnees) { corps.innerHTML = `<p class="subtitle">Le livre de caisse n'a pas pu être chargé. Réessaie dans un instant.</p>`; return; }
+        const journal = donnees.journal || [], aVenir = donnees.aVenir || [];
+        const caisseJeu = (typeof Game !== "undefined" && Game.joueur) ? Game.joueur.tresorerie : 0;
+        if (!journal.length) {
+            corps.innerHTML = `<p class="subtitle">Le livre de caisse se remplit à chaque chapitre réussi.</p>`;
+            return;
+        }
+        const titre = (n) => { const s = this.souvenirs.find(x => x.n === n); return s ? s.titre : ""; };
+        let html = `<p class="subtitle"><b>Caisse</b> = l'argent qui entre et qui sort. <b>Résultat</b> = la richesse créée ou consommée. Ils ne bougent pas toujours ensemble : c'est tout le secret de la trattoria.</p>
+            <table class="journal"><thead><tr><th>Opération</th><th>Caisse</th><th>Résultat</th></tr></thead><tbody>`;
+        let cumul = 0, totalRes = 0;
+        const chapitres = [...new Set(journal.map(x => x.n))].sort((a, b) => a - b);
+        for (const n of chapitres) {
+            const lignes = journal.filter(x => x.n === n);
+            const c = lignes.reduce((s, x) => s + x.caisse, 0), r = lignes.reduce((s, x) => s + x.resultat, 0);
+            cumul += c; totalRes += r;
+            html += `<tr class="journal-chapitre"><td colspan="3">Chapitre ${n}${titre(n) ? " — " + titre(n) : ""}</td></tr>`;
+            html += lignes.map(x => `<tr><td>${x.libelle}</td>${this._cellule(x.caisse)}${this._cellule(x.resultat)}</tr>`).join("");
+            html += `<tr class="journal-total"><td>Total du chapitre <span class="journal-cumul">· caisse cumulée ${this._euros(cumul)}</span></td>${this._cellule(c)}${this._cellule(r)}</tr>`;
+        }
+        const autres = Math.round((caisseJeu - cumul) * 100) / 100;
+        html += `</tbody><tfoot>
+            <tr><td>Total des opérations de la trattoria</td>${this._cellule(cumul)}${this._cellule(totalRes)}</tr>
+            ${autres ? `<tr><td>Autres mouvements (embûches, défis, révisions)</td>${this._cellule(autres)}<td class="nul">—</td></tr>` : ""}
+            <tr class="journal-final"><td>Caisse aujourd'hui</td><td colspan="2">${this._euros(caisseJeu)}</td></tr>
+        </tfoot></table>`;
+        if (aVenir.length) {
+            html += `<div class="journal-avenir"><b><i class="fa-solid fa-hourglass-half"></i> À venir</b>` +
+                aVenir.map(x => `<div>Au chapitre ${x.mois} : ${x.libelle} <b class="${x.montant < 0 ? "ko" : "ok"}">${this._euros(x.montant, true)}</b></div>`).join("") + `</div>`;
+        }
+        corps.innerHTML = html;
+    },
+
     ouvrir(onglet) {
         const ov = document.getElementById("carnet-overlay");
         document.querySelectorAll(".carnet-onglet").forEach(b => b.classList.toggle("actif", b.dataset.onglet === onglet));
         const corps = document.getElementById("carnet-corps");
+        if (onglet === "caisse") {
+            ov.style.display = "flex";
+            this._caisse(corps);
+            return;
+        }
         if (onglet === "erreurs") {
             const liste = this.erreurs();
             corps.innerHTML = liste.length
