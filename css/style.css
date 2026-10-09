@@ -1022,3 +1022,8 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     .speaker-avatar { width: 42px; height: 42px; min-width: 42px; font-size: 19px; }
     #save-status { font-size: 0.8em; align-self: center; }
 }
+
+/* Échéancier : flux différés qui tombent ce mois-ci (solde client, fournisseur…) */
+.echeances { margin-top: 10px; padding: 8px 12px; border-left: 4px solid var(--secondary); background: #eef3f8; border-radius: 6px; text-align: left; font-size: 0.95em; }
+.echeances b.ok { color: var(--success); }
+.echeances b.ko { color: var(--primary); }
