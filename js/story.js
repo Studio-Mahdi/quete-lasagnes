@@ -9,8 +9,12 @@ const Story = {
     personnages: {},
     rangs: ["?"],
 
+    // Les rangs sont répartis sur toute la quête (avant : un rang par chapitre,
+    // si bien qu'on devenait « Maîtresse » dès le chapitre 8 sur 15).
     rangPour(niveau) {
-        return this.rangs[Math.min(Math.max(niveau - 1, 0), this.rangs.length - 1)] || "Chef";
+        const n = this.rangs.length;
+        const reussis = Math.min(Math.max(niveau - 1, 0), 15);
+        return this.rangs[Math.min(n - 1, Math.floor(reussis * (n - 1) / 15))] || "Chef";
     },
 
     // Rempli par Api.chargerMeta() après le login
