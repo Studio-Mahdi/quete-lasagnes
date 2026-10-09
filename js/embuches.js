@@ -19,10 +19,17 @@ const Embuches = {
     async charger(niveau) {
         // de nouvelles embûches se débloquent avec les chapitres : on recharge si le niveau a changé
         if (this.pool.length && this._niveauCharge === niveau) return;
-        try {
-            const data = await Api._post({ action: "embuches", email: Api._getEmail(), token: Api._getToken() });
-            if (data.embuches) { this.pool = data.embuches; this._niveauCharge = niveau; }
-        } catch (e) { console.error(e); }
+        // une demande déjà en route (préchargement pendant la récompense) est réutilisée
+        if (this._enCours && this._enCoursNiveau === niveau) return this._enCours;
+        this._enCoursNiveau = niveau;
+        this._enCours = (async () => {
+            try {
+                const data = await Api._post({ action: "embuches", email: Api._getEmail(), token: Api._getToken() });
+                if (data.embuches) { this.pool = data.embuches; this._niveauCharge = niveau; }
+            } catch (e) { console.error(e); }
+            finally { this._enCours = null; }
+        })();
+        return this._enCours;
     },
 
     async peutFrapper(game) {

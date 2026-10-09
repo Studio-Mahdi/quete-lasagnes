@@ -87,9 +87,19 @@ const Levels = {
         }
     },
     _chapitre(niveau) {
-        const p = this._prechargements[niveau] || Api.chargerChapitre(niveau);
+        const p = this._prechargements[niveau];
         delete this._prechargements[niveau];
-        return p;
+        // un préchargement raté (réseau, sauvegarde pas encore arrivée) est retenté une fois
+        return p ? p.catch(() => Api.chargerChapitre(niveau)) : Api.chargerChapitre(niveau);
+    },
+
+    // Bouton cliqué : retour visible immédiat pendant que le serveur répond
+    _occuper(id) {
+        const b = document.getElementById(id);
+        if (!b || b.disabled) return false;
+        b.disabled = true;
+        b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Chef Luigi prépare la suite…';
+        return true;
     },
 
     async load(niveau) {
@@ -104,7 +114,13 @@ const Levels = {
                     Story.hydraterChapitre(niveau, chapitre);
                 } catch (e) {
                     if (e.message === "seance") { this.attenteSeance(niveau); return; }
-                    UI.feedbackKo("Chapitre verrouillé — contenu indisponible.");
+                    // jamais de bouton figé : l'élève voit le problème et peut réessayer
+                    UI.setDialog("fa-solid fa-wifi", "Chef Luigi", "Le serveur ne répond pas, Chef. On réessaie ?");
+                    UI.setContent(`<div class="chapitre-fiche"><p>Le chapitre ${niveau} n'a pas pu être chargé${e.message === "locked" ? " (ta progression n'est pas encore enregistrée)" : ""}.</p>
+                        <button class="btn" id="btn-reessayer"><i class="fa-solid fa-rotate-right"></i> Réessayer</button></div>`);
+                    document.getElementById("btn-reessayer").addEventListener("click", () => {
+                        if (this._occuper("btn-reessayer")) this.load(niveau);
+                    });
                     return;
                 }
             }
@@ -160,6 +176,10 @@ const Levels = {
         this._evaluerTrophees();
         const fini = g.joueur.niveau - 1;
         Carnet.ajouterSouvenir(fini, Story.etapes[fini]);
+        // Pendant que l'élève lit sa récompense : chapitre suivant et embûches demandés
+        // d'avance (avant : deux allers-retours vers Google APRÈS le clic, sans rien afficher)
+        this.precharger(g.joueur.niveau);
+        if (g.joueur.niveau <= 15) Embuches.charger(g.joueur.niveau);
         // peutFrapper est async : attendre sa réponse (une Promise est toujours
         // "vraie", le chapitre suivant ne se chargeait donc jamais sans embûche).
         const nxt = async () => {
@@ -222,8 +242,8 @@ const Levels = {
             </div>`);
         const bouton = document.getElementById("btn-chapitre-suivant");
         bouton.addEventListener("click", () => {
-            if (et.interlude) this.interlude(et.interlude, suite);
-            else if (suite) suite();
+            if (et.interlude) { this.interlude(et.interlude, suite); return; }
+            if (this._occuper("btn-chapitre-suivant") && suite) suite();
         });
     },
 
@@ -278,7 +298,7 @@ const Levels = {
                 <p>${scene.texte}</p>
                 <button class="btn" id="btn-interlude">Retourner en cuisine <i class="fa-solid fa-arrow-right"></i></button>
             </div>`);
-        document.getElementById("btn-interlude").addEventListener("click", () => { if (suite) suite(); });
+        document.getElementById("btn-interlude").addEventListener("click", () => { if (this._occuper("btn-interlude") && suite) suite(); });
     },
 
     ficheChapitre(niveau) {
