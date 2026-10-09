@@ -3,7 +3,12 @@
 const Fiches = {
     fiches: {},
 
-    ouvrir(cle) {
+    async ouvrir(cle) {
+        // Le bouton « Fiche d'aide » d'une épreuve arrive ici sans que la fiche
+        // ait été chargée (seul le menu la chargeait) : on la demande au serveur.
+        if (!this.fiches[cle]) {
+            try { this.fiches[cle] = await Api.chargerFiche(cle); } catch (e) { /* verrouillée */ }
+        }
         const f = this.fiches[cle];
         if (!f) {
             document.getElementById("fiche-titre").innerHTML = `<i class="fa-solid fa-lock"></i> Fiche verrouillée`;

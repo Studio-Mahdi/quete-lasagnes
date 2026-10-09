@@ -554,7 +554,14 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
 
 .anecdote b { color: var(--secondary); }
 
-#grimoire-overlay {
+/* Tous les panneaux superposés partagent ce style. Seul le grimoire l'avait :
+   fiches, trophées, casting et classement s'affichaient à côté du jeu
+   (souvent hors écran) au lieu de s'ouvrir par-dessus. */
+#grimoire-overlay,
+#fiche-overlay,
+#trophees-overlay,
+#casting-overlay,
+#classement-overlay {
     position: fixed;
     inset: 0;
     background: rgba(29,53,87,0.8);
