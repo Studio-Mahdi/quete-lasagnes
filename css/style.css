@@ -835,7 +835,7 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     background: white; padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; text-align: left;
 }
 .saisie-input { white-space: nowrap; font-weight: 600; }
-.saisie-input input { width: 110px; padding: 8px 10px; font-size: 1em; border: 2px solid #ccc; border-radius: 8px; text-align: right; }
+.saisie-input input { width: 150px; padding: 8px 10px; font-size: 1em; border: 2px solid #ccc; border-radius: 8px; text-align: right; }
 .saisie-input input:focus { border-color: var(--secondary); outline: none; }
 
 .jauges-totaux { display: flex; gap: 12px; width: 100%; max-width: 640px; margin: 10px 0; position: sticky; top: -30px; z-index: 2; padding: 8px 0; background: var(--bg); box-shadow: 0 6px 8px -6px rgba(0,0,0,0.15); }
@@ -984,3 +984,8 @@ table.amort-table { width: 100%; border-collapse: collapse; margin: 12px 0; font
     .idee-nb { grid-column: 2; }
     #prof-promos { font-size: 0.8em; }
 }
+
+/* ====== Calculs dans les cases ====== */
+.saisie-droite { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.saisie-calcul { font-size: 0.85em; color: var(--success); font-weight: 700; min-height: 1.1em; }
+.saisie-calcul.invalide { color: var(--primary); }

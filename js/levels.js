@@ -535,23 +535,83 @@ const Levels = {
         });
     },
 
+    // Calculatrice des cases, comme dans un tableur : « =192*20% », « 192 x 0,2 »,
+    // « (1 000 - 80) / 2 ». Analyseur dédié (nombres, + - * / ( ) %), jamais d'eval :
+    // aucun autre texte ne peut être exécuté. Renvoie null si vide, NaN si invalide.
+    calculer(texte) {
+        const s = String(texte == null ? "" : texte).trim().replace(/^=/, "")
+            .replace(/\s/g, "").replace(/,/g, ".").replace(/[x×]/gi, "*").replace(/÷/g, "/");
+        if (!s) return null;
+        if (!/^[0-9.+\-*/()%]+$/.test(s)) return NaN;
+        let i = 0;
+        const voir = () => s[i];
+        const nombre = () => {
+            const m = s.slice(i).match(/^\d*\.?\d+|^\d+\./);
+            if (!m) throw new Error("nombre attendu");
+            i += m[0].length;
+            return parseFloat(m[0]);
+        };
+        const facteur = () => {
+            if (voir() === "-") { i++; return -facteur(); }
+            if (voir() === "+") { i++; return facteur(); }
+            let v;
+            if (voir() === "(") { i++; v = expression(); if (voir() !== ")") throw new Error(")"); i++; }
+            else v = nombre();
+            while (voir() === "%") { i++; v /= 100; }
+            return v;
+        };
+        const terme = () => {
+            let v = facteur();
+            while (voir() === "*" || voir() === "/") { const op = s[i++]; const d = facteur(); v = op === "*" ? v * d : v / d; }
+            return v;
+        };
+        const expression = () => {
+            let v = terme();
+            while (voir() === "+" || voir() === "-") { const op = s[i++]; const d = terme(); v = op === "+" ? v + d : v - d; }
+            return v;
+        };
+        try {
+            const v = expression();
+            return i === s.length && isFinite(v) ? Math.round(v * 100) / 100 : NaN;
+        } catch (e) { return NaN; }
+    },
+
     _moteurSaisie(acte, soumettre) {
         UI.setContent(`
             ${acte.contenu || ""}
+            <p class="cartes-aide"><i class="fa-solid fa-calculator"></i> Astuce : comme dans un tableur, tu peux taper un calcul, par exemple <b>=1000*20%</b>.</p>
             <div class="saisie-grille">
                 ${(acte.champs || []).map((c, i) => `
                 <label class="saisie-champ" data-k="${i}">
                     <span>${c.libelle}</span>
-                    <span class="saisie-input"><input type="text" inputmode="decimal" autocomplete="off" id="champ-${i}" placeholder="?"> ${c.unite || ""}</span>
+                    <span class="saisie-droite">
+                        <span class="saisie-input"><input type="text" autocomplete="off" spellcheck="false" id="champ-${i}" placeholder="? ou =calcul"> ${c.unite || ""}</span>
+                        <span class="saisie-calcul" id="calcul-${i}"></span>
+                    </span>
                 </label>`).join("")}
             </div>
             <button class="btn" id="btn-ep">${acte.bouton || "Valider"}</button>
             ${acte.fiche ? Fiches.bouton(acte.fiche) : ""}`);
         const b = document.getElementById("btn-ep");
+        const formater = v => String(v).replace(".", ",");
+        // aperçu du résultat sous la case dès qu'elle contient un calcul
+        (acte.champs || []).forEach((c, i) => {
+            const champ = document.getElementById("champ-" + i), apercu = document.getElementById("calcul-" + i);
+            champ.addEventListener("input", () => {
+                const brut = champ.value.trim();
+                const estCalcul = /^=|[+*/x×÷%()]|\d\s*-\s*\d/i.test(brut);
+                const v = this.calculer(brut);
+                apercu.className = "saisie-calcul" + (Number.isNaN(v) ? " invalide" : "");
+                apercu.textContent = !estCalcul || v === null ? "" : Number.isNaN(v) ? "calcul invalide" : "= " + formater(v);
+            });
+        });
         const envoyer = () => {
-            const valeurs = (acte.champs || []).map((c, i) => document.getElementById("champ-" + i).value.trim());
-            if (valeurs.some(v => v === "")) { UI.setFeedback(`<span class="ko">Remplis toutes les cases.</span>`); return; }
-            soumettre(valeurs, b);
+            const valeurs = (acte.champs || []).map((c, i) => this.calculer(document.getElementById("champ-" + i).value));
+            if (valeurs.some(v => v === null)) { UI.setFeedback(`<span class="ko">Remplis toutes les cases.</span>`); return; }
+            const fausse = valeurs.findIndex(v => Number.isNaN(v));
+            if (fausse >= 0) { UI.setFeedback(`<span class="ko">Le calcul de la case « ${acte.champs[fausse].libelle} » n'est pas valide.</span>`); return; }
+            // seul le résultat part au serveur
+            soumettre(valeurs.map(formater), b);
         };
         b.addEventListener("click", envoyer);
         document.querySelectorAll(".saisie-input input").forEach(inp => inp.addEventListener("keydown", e => {
