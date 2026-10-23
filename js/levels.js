@@ -660,8 +660,7 @@ const Levels = {
     _moteurJauges(acte, soumettre) {
         const evts = acte.evenements || [];
         const choix = evts.map(() => [null, null]);
-        // 23/10/2026 (retour de l'auteur sur téléphone) : le « 0 » ressemblait à un compteur, pas à un choix.
-        // Chaque bouton porte son sens en toutes lettres ; « = aucun effet » est un choix comme les autres.
+        // 23/10/2026 : le « 0 » ressemblait à un compteur ; chaque bouton dit son sens
         const sens = { "-1": "baisse", "0": "aucun effet", "1": "hausse" };
         const bouton = (i, axe, val, ico) => `<button class="jauge-btn" data-i="${i}" data-axe="${axe}" data-val="${val}" title="${sens[val]}" aria-label="${axe ? "Caisse" : "Résultat"} : ${sens[val]}"><b>${ico}</b><small>${sens[val]}</small></button>`;
         const boutons = (i, axe) => bouton(i, axe, -1, "−") + bouton(i, axe, 0, "=") + bouton(i, axe, 1, "+");
@@ -702,7 +701,6 @@ const Levels = {
         b.addEventListener("click", () => {
             const manquants = choix.map((c, i) => (c[0] === null || c[1] === null ? i : -1)).filter(i => i >= 0);
             if (manquants.length) {
-                // lignes incomplètes surlignées : on voit tout de suite où il manque un choix (souvent « = »)
                 manquants.forEach(i => document.querySelector(`.jauge-ligne[data-k="${i}"]`).classList.add("erreur-surlignee"));
                 const premiere = document.querySelector(`.jauge-ligne[data-k="${manquants[0]}"]`);
                 if (premiere && premiere.scrollIntoView) premiere.scrollIntoView({ behavior: "smooth", block: "center" });

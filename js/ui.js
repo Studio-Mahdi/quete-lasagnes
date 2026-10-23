@@ -383,12 +383,14 @@ const UI = {
         // (bouton en bas de page), on la ramène à l'écran pour qu'il la lise d'abord.
         const zone = this.$("dialog-area");
         if (window.innerWidth <= 640 && zone && zone.getBoundingClientRect().top < 0) {
-            zone.scrollIntoView({ block: "start", behavior: "smooth" });
+            window.scrollTo({ top: 0, behavior: "smooth" });
         }
     },
 
     setContent(html) {
         this.$("quest-content").innerHTML = html;
+        // nouvel écran sur téléphone : retour en haut, bandeau compris (23/10/2026)
+        if (window.innerWidth <= 640 && window.scrollY > 0) window.scrollTo(0, 0);
     },
 
     setFeedback(html) {
