@@ -660,14 +660,19 @@ const Levels = {
     _moteurJauges(acte, soumettre) {
         const evts = acte.evenements || [];
         const choix = evts.map(() => [null, null]);
-        const bouton = (i, axe, val, ico) => `<button class="jauge-btn" data-i="${i}" data-axe="${axe}" data-val="${val}" title="${val > 0 ? "monte" : val < 0 ? "baisse" : "ne change pas"}">${ico}</button>`;
-        const boutons = (i, axe) => bouton(i, axe, -1, "−") + bouton(i, axe, 0, "0") + bouton(i, axe, 1, "+");
+        // 23/10/2026 (retour de l'auteur sur téléphone) : le « 0 » ressemblait à un compteur, pas à un choix.
+        // Chaque bouton porte son sens en toutes lettres ; « = aucun effet » est un choix comme les autres.
+        const sens = { "-1": "baisse", "0": "aucun effet", "1": "hausse" };
+        const bouton = (i, axe, val, ico) => `<button class="jauge-btn" data-i="${i}" data-axe="${axe}" data-val="${val}" title="${sens[val]}" aria-label="${axe ? "Caisse" : "Résultat"} : ${sens[val]}"><b>${ico}</b><small>${sens[val]}</small></button>`;
+        const boutons = (i, axe) => bouton(i, axe, -1, "−") + bouton(i, axe, 0, "=") + bouton(i, axe, 1, "+");
         UI.setContent(`
             ${acte.contenu || ""}
             <div class="jauges-totaux">
                 <div class="jauge-total"><span><i class="fa-solid fa-chart-line"></i> Résultat</span><b id="jt-0">0 €</b></div>
                 <div class="jauge-total"><span><i class="fa-solid fa-coins"></i> Caisse</span><b id="jt-1">0 €</b></div>
             </div>
+            <p class="jauges-aide">Pour chaque ligne, choisis l'effet sur le <b>résultat</b> et sur la <b>caisse</b> :
+                <b>−</b> baisse, <b>=</b> aucun effet, <b>+</b> hausse. Si rien ne bouge, choisis <b>=</b>.</p>
             <div class="jauges-liste">
                 ${evts.map((e, i) => `
                 <div class="jauge-ligne" data-k="${i}">
@@ -695,8 +700,13 @@ const Levels = {
         });
         const b = document.getElementById("btn-ep");
         b.addEventListener("click", () => {
-            if (choix.some(c => c[0] === null || c[1] === null)) {
-                UI.setFeedback(`<span class="ko">Indique les deux effets (résultat et caisse) pour chaque événement.</span>`);
+            const manquants = choix.map((c, i) => (c[0] === null || c[1] === null ? i : -1)).filter(i => i >= 0);
+            if (manquants.length) {
+                // lignes incomplètes surlignées : on voit tout de suite où il manque un choix (souvent « = »)
+                manquants.forEach(i => document.querySelector(`.jauge-ligne[data-k="${i}"]`).classList.add("erreur-surlignee"));
+                const premiere = document.querySelector(`.jauge-ligne[data-k="${manquants[0]}"]`);
+                if (premiere && premiere.scrollIntoView) premiere.scrollIntoView({ behavior: "smooth", block: "center" });
+                UI.setFeedback(`<span class="ko">Il manque un choix sur ${manquants.length > 1 ? manquants.length + " lignes" : "une ligne"} (surlignée${manquants.length > 1 ? "s" : ""}). Si le montant ne change pas le résultat ou la caisse, choisis « = aucun effet ».</span>`);
                 return;
             }
             soumettre(choix, b);
